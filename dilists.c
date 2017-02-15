@@ -25,6 +25,7 @@ int dirInfo_add(dirInfoHead * head, char name[30], int dinode_num)
 
 	if (newNode == NULL) return 10;
 
+	head->count++;
 	strcpy(newNode->entry.name, name);
 	newNode->entry.dinode_num = dinode_num;
 	newNode->next = NULL;
@@ -71,6 +72,7 @@ int dirInfo_delete(dirInfoHead * head, char name[30])
 			prev->next = current->next;
 
 		free(current);
+		head->count--;
 
 		return 0;
 	}
@@ -83,7 +85,7 @@ int dirInfo_delete(dirInfoHead * head, char name[30])
 
 void dirInfo_printall(dirInfoHead * head)
 {
-	printf("\n\n---Printing all dirInfo---\n\n");
+	printf("\n\n---Printing all dirInfo (%d entries)---\n\n",head->count + 2);
 	printf(". : %d\n", head->current);
 	printf(".. : %d\n", head->parent);
 
