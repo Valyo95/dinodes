@@ -12,13 +12,13 @@ struct metadata
 typedef struct metadata metadata;
 
 
-struct dinode_entry
+struct dirEntry
 {
 	char name[30];
 	int dinode_num;
 };
 
-typedef struct dinode_entry dinode_entry;
+typedef struct dirEntry dirEntry;
 
 
 struct dinode
