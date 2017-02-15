@@ -5,9 +5,9 @@ OUT  	= mydiz
 CC	= gcc
 FLAGS   = -g -c 
 
-all: 
+all: blktest $(SOURCE) $(HEADER)
 
-blktest: blk_main.o blocks.o
+blktest: blk_main.o blocks.o 
 	$(CC) -g blk_main.o blocks.o -o blktest
 
 blk_main.o: blk_main.c

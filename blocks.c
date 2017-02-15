@@ -21,72 +21,112 @@ int BLK_close_file(int fd)
 
 int BLK_add_blocks(int fd, int blocks_num)
 {
-	void * new_block;
-	int error,i;
+	void * new_blocks;
+	int error,block_start,total_bytes;
 
-	new_block = malloc(blocks_num*BLOCK_SIZE);
+	block_start = lseek(fd, 0, SEEK_END);
+	total_bytes = blocks_num*BLOCK_SIZE;
+	new_blocks = malloc(total_bytes);
+	
+	if ( write(fd, new_blocks, total_bytes) != total_bytes)
+	{
+		fprintf(stderr, "BLK_add_blocks: Write failed!\n");
+		free(new_blocks);
+		return -1;
+	}
+	free(new_blocks);
 
-	lseek(fd, 0, SEEK_END);
-	error = write(fd, new_block, blocks_num*BLOCK_SIZE);
-	free(new_block);
+	return block_start;
 
-	return error;
 }
 
 
-int BLK_read_block(int fd, int block_num, void ** block)
+int BLK_read_block(int fd, int bytePtr, void ** block)
 {
 	int error;
 
-	if ( lseek(fd, block_num*BLOCK_SIZE, SEEK_SET) == (off_t) -1)
+	if (bytePtr < 0)
 	{
-		fprintf(stderr, "BLK_read_block: Invalid block_num!");
+		fprintf(stderr, "BLK_read_block:Invalid byte pointer!\n");
+		return -2;
+	}
+
+	if ( lseek(fd, bytePtr, SEEK_SET) == (off_t) -1)
+	{
+		fprintf(stderr, "BLK_read_block: Invalid byte pointer!\n");
 		return -2;
 	}
 
 	*block = malloc(BLOCK_SIZE);
 	error = read(fd, *block, BLOCK_SIZE);
 
-	return error;
+	if (error == -1)
+	{
+		fprintf(stderr, "BLK_read_block: Read failed!\n");
+		free(block);
+		return -1;
+	}
+
+	return error;/*return bytes read*/
 }
 
 
-int BLK_write_block(int fd, int block_num, void * block)
+int BLK_write_block(int fd, int bytePtr, void * block)
 {
 	int error;
 
-	if ( lseek(fd, block_num*BLOCK_SIZE, SEEK_SET) == (off_t) -1)
+
+	if (bytePtr < 0)
 	{
-		fprintf(stderr, "BLK_write_block: Invalid block_num!");
+		fprintf(stderr, "BLK_write_block:Invalid byte pointer!\n");
+		return -2;
+	}
+
+	if ( lseek(fd, bytePtr, SEEK_SET) == (off_t) -1)
+	{
+		fprintf(stderr, "BLK_write_block: Invalid byte pointer!\n");
 		return -2;
 	}
 
 	error = write(fd, block, BLOCK_SIZE);
 
-	return error;
+	if (error == -1)
+	{
+		fprintf(stderr, "BLK_write_block: Write failed!\n");
+		return -1;
+	}
+
+	return error;/*return bytes written*/
 
 }
 
 
-int BLK_delete_block(int fd, char * filename, int block_num)
+int BLK_delete_block(int fd, char * filename, int bytePtr)
 {
-	int error,new_fd,total_blocks,prev_blocks,next_blocks;
+	int error,new_fd,total_blocks,next_byte,last_byte;
 	void * remaining_blocks;
 
+	if (bytePtr < 0)
+	{
+		fprintf(stderr, "BLK_delete_block:Invalid byte pointer!\n");
+		return -2;
+	}
+
 	total_blocks = BLK_block_counter(fd);
-	prev_blocks = block_num - 1;
-	next_blocks = total_blocks - block_num;
+	last_byte = total_blocks*BLOCK_SIZE;
+	next_byte = bytePtr + BLOCK_SIZE;
 	remaining_blocks = malloc( (total_blocks-1)*BLOCK_SIZE);
 
-	lseek(fd, 0, SEEK_SET);
-	if (prev_blocks >= 0)
+	if (bytePtr != 0)
 	{
-		if (read(fd, remaining_blocks, prev_blocks*BLOCK_SIZE) == -1)
+		lseek(fd, 0, SEEK_SET);
+		if (read(fd, remaining_blocks, bytePtr) == -1)
 			return -1;
 	}
-	if (next_blocks >=0)
+	if (next_byte <= last_byte)
 	{
-		if (read(fd, remaining_blocks + prev_blocks*BLOCK_SIZE, next_blocks*BLOCK_SIZE) == -1)
+		lseek(fd, next_byte, SEEK_SET);
+		if (read(fd, remaining_blocks + bytePtr, last_byte - next_byte) == -1)
 			return -1;
 	}
 
