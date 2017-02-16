@@ -27,7 +27,7 @@ int md_create(metadata ** md, int block_size)
 	
 	mdp->last_dirInfo = NULL;
 	mdp->dirIndex = 0;
-	mdp->dirMax = (block_size - sizeof(int)) / sizeof(dirEntry);
+	mdp->dirMax = (block_size - 2*sizeof(int)) / sizeof(dirEntry);
 
 	printf("metadata created for block size %d\n",block_size);
 	printf("size of stat is %d\n",sizeof(struct stat));
