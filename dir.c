@@ -10,7 +10,7 @@
 int check_dir(char *dir, int depth);
 
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
 	struct stat st;
 
@@ -61,11 +61,12 @@ int check_dir(char *dirname, int depth)
         	count+= check_dir(file_name, depth+1);
         }
         else
+        {
+            chmod(st.)
 	        printf("\n");
-	//	printf("%d\n\n",S_ISDIR(st.st_mode));
-//		printStat(st);
+        }
+		printStat(st);
     }
-    //printf("\n");
     closedir(dir);
     chdir("..");
     return count;   

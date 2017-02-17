@@ -28,5 +28,6 @@
 int printStat(struct stat stat);
 char *my_itoa(int num, char **str);
 int copy_string(char ** dest, char *s);
+int writeFile(char *fileName, char *outName, int blkout);
 
 #endif

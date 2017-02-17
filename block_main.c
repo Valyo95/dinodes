@@ -4,12 +4,11 @@
 
 #include "blocks.h"
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
-	int fd,i,error;
-	char * filename = "testfile";
+	int fd,i;
 
-	fd = OpenFile(filename);
+	fd = OpenFile("testfile");
 
 	void * block;
 	block = malloc(BLOCK_SIZE);
