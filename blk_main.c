@@ -2,49 +2,43 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "blocks.h"
+#include "block.h"
+#include "funcs.h"
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
-	int fd,i,error;
-	char * filename = "testfile";
+	char *bla = "block\n\n\n\n";
+	int blocks;
+	char *b= malloc(BLOCK_SIZE*sizeof(char));
+	int ret;
+	int i;
 
-	fd = BLK_open_file(filename);
+	printf("%s\n", argv[2]);
 
-	error = BLK_add_blocks(fd, 2);
+	WriteBlock(argv[2], 0, (void*) bla);	
+	WriteBlock(argv[2], 1, (void*) bla);
+	WriteBlock(argv[2], 2, (void*) bla);
+	WriteBlock(argv[2], 3, (void*) bla);
 
-	if (error == -1)
+	blocks = GetBlockCounter(argv[1]);
+
+/*	for (i = 0; i < blocks-1; ++i)
 	{
-		printf("BLK_add_blocks error %d\n",error);
-		perror("BLK");
-	}
+		printf("i = %d\n", i);
+		ret = ReadBlock(argv[1], i, (void*) b);
+		printf("%s\n\n\n", b);
+	}	
+	
+	printf("i = %d\n", i);
+	ret = ReadBlock(argv[1], i, (void*) b);
+	b[ret] = '\0';
+	printf("%s\n\n\n", b);
+*/
 
-	void * block1;
-	void * block2;
+	ret = GetBlockCounter(argv[2]);
+	printf("ret = %d\n", ret);
+//	writeFile(argv[1], argv[2], );
 
-	BLK_read_block(fd,0,&block1);
-	BLK_read_block(fd,1,&block2);
-
-	char test1[20],test2[20];
-
-	strcpy(test1,"MANOS");
-	strcpy(test2,"TORAKIS");	
-
-	memcpy(block1, test1, strlen(test1)*sizeof(char));
-	memcpy(block2, test2, strlen(test2)*sizeof(char));
-
-	BLK_write_block(fd,0,block1);
-	BLK_write_block(fd,512,block2);
-
-
-
-	//BLK_delete_block(fd, "testfile", 1);
-	i = BLK_block_counter(fd);
-	printf("Block #: %d\n",i);
-
-	BLK_close_file(fd);
-
-	//remove(filename);
-
+	free(b);
 	return 0;
 }
