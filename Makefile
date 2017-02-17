@@ -1,11 +1,14 @@
-OBJS 	= blocks.o dilists.o list_main.o blk_main.o dir.o funcs.o metadata.o
-SOURCE	= blk_main.c blocks.c dilists.c dinode.c dir.c funcs.c metadata.c
-HEADER  = blocks.h dilists.h dinode.h funcs.h metadata.h
-OUT  	= mydiz metamain dir blktest list_main
+OBJS 	= blocks.o dilists.o list_main.o blk_main.o dir.o funcs.o metadata.o dirtest.o
+SOURCE	= blk_main.c blocks.c dilists.c dinode.c dir.c funcs.c metadata.c dirtest.c
+HEADER  = blocks.h dilists.h dinode.h funcs.h metadata.h 
+OUT  	= mydiz metamain dir blktest list_main dirtest
 CC	= gcc
 FLAGS   = -g -c 
 
 all: blktest $(SOURCE) $(HEADER)
+
+dirtest: dirtest.o funcs.o metadata.o
+	$(CC) -g dirtest.o funcs.o metadata.o -o dirtest
 
 metamain: metamain.o metadata.o
 	$(CC) -g metamain.o metadata.o -o metamain
@@ -18,6 +21,9 @@ blktest: blk_main.o blocks.o
 
 list_main: list_main.o dilists.o
 	$(CC) -g list_main.o dilists.o -o list_main
+
+dirtest.o: dirtest.c
+	$(CC) $(FLAGS) dirtest.c
 
 metamain.o: metamain.c
 	$(CC) $(FLAGS) metamain.c
