@@ -7,62 +7,41 @@
 
 #include "blocks.h"
 
-int BLK_open_file(const char * path)
+int OpenFile(const char * path)
 {
 	return open(path, O_RDWR | O_CREAT, 0666);
 }
 
 
-int BLK_close_file(int fd)
+int CloseFile(int fd)
 {
 	return close(fd);
 }
 
 
-int BLK_add_blocks(int fd, int blocks_num)
+int ReadBlock(int fd, int block_num, void * block)
 {
-	void * new_blocks;
-	int error,block_start,total_bytes;
+	int error,blocks;
 
-	block_start = lseek(fd, 0, SEEK_END);
-	total_bytes = blocks_num*BLOCK_SIZE;
-	new_blocks = malloc(total_bytes);
-	
-	if ( write(fd, new_blocks, total_bytes) != total_bytes)
+	blocks = BlockCounter(fd);
+
+	if (block_num < 0 || block_num >= blocks)
 	{
-		fprintf(stderr, "BLK_add_blocks: Write failed!\n");
-		free(new_blocks);
-		return -1;
-	}
-	free(new_blocks);
-
-	return block_start;
-
-}
-
-
-int BLK_read_block(int fd, int bytePtr, void ** block)
-{
-	int error;
-
-	if (bytePtr < 0)
-	{
-		fprintf(stderr, "BLK_read_block:Invalid byte pointer!\n");
+		fprintf(stderr, "BLK_read_block:Invalid block num!\n");
 		return -2;
 	}
 
-	if ( lseek(fd, bytePtr, SEEK_SET) == (off_t) -1)
+	if ( lseek(fd, block_num*BLOCK_SIZE, SEEK_SET) == (off_t) -1)
 	{
-		fprintf(stderr, "BLK_read_block: Invalid byte pointer!\n");
+		fprintf(stderr, "ReadBlock:ReadBlock Invalid block num!\n");
 		return -2;
 	}
 
-	*block = malloc(BLOCK_SIZE);
-	error = read(fd, *block, BLOCK_SIZE);
+	error = read(fd, block, BLOCK_SIZE);
 
 	if (error == -1)
 	{
-		fprintf(stderr, "BLK_read_block: Read failed!\n");
+		fprintf(stderr, "ReadBlock: Read failed!\n");
 		free(block);
 		return -1;
 	}
@@ -71,28 +50,28 @@ int BLK_read_block(int fd, int bytePtr, void ** block)
 }
 
 
-int BLK_write_block(int fd, int bytePtr, void * block)
+int WriteBlock(int fd, int block_num, void * block)
 {
-	int error;
+	int error,blocks;
 
+	blocks = BlockCounter(fd);
 
-	if (bytePtr < 0)
+	if (block_num < -1 || block_num >= blocks)
 	{
-		fprintf(stderr, "BLK_write_block:Invalid byte pointer!\n");
+		fprintf(stderr, "WriteBlock:Invalid block num!\n");
 		return -2;
 	}
 
-	if ( lseek(fd, bytePtr, SEEK_SET) == (off_t) -1)
-	{
-		fprintf(stderr, "BLK_write_block: Invalid byte pointer!\n");
-		return -2;
-	}
+	if (block_num == -1)
+		lseek(fd, 0, SEEK_END);
+	else
+		lseek(fd, block_num*BLOCK_SIZE, SEEK_SET);		
 
 	error = write(fd, block, BLOCK_SIZE);
 
 	if (error == -1)
 	{
-		fprintf(stderr, "BLK_write_block: Write failed!\n");
+		fprintf(stderr, "WriteBlock: Write failed!\n");
 		return -1;
 	}
 
@@ -101,53 +80,116 @@ int BLK_write_block(int fd, int bytePtr, void * block)
 }
 
 
-int BLK_delete_block(int fd, char * filename, int bytePtr)
-{
-	int error,new_fd,total_blocks,next_byte,last_byte;
-	void * remaining_blocks;
-
-	if (bytePtr < 0)
-	{
-		fprintf(stderr, "BLK_delete_block:Invalid byte pointer!\n");
-		return -2;
-	}
-
-	total_blocks = BLK_block_counter(fd);
-	last_byte = total_blocks*BLOCK_SIZE;
-	next_byte = bytePtr + BLOCK_SIZE;
-	remaining_blocks = malloc( (total_blocks-1)*BLOCK_SIZE);
-
-	if (bytePtr != 0)
-	{
-		lseek(fd, 0, SEEK_SET);
-		if (read(fd, remaining_blocks, bytePtr) == -1)
-			return -1;
-	}
-	if (next_byte <= last_byte)
-	{
-		lseek(fd, next_byte, SEEK_SET);
-		if (read(fd, remaining_blocks + bytePtr, last_byte - next_byte) == -1)
-			return -1;
-	}
-
-	new_fd = BLK_open_file("./temp");
-	if ( write(new_fd, remaining_blocks, (total_blocks-1)*BLOCK_SIZE) == -1)
-		return -1;
-
-	remove(filename);
-	rename("temp",filename);
-
-	return new_fd;
-}
-
-
-int BLK_block_counter(int fd)
+int BlockCounter(int fd)
 {
 	int size,counter;
 
 	size = lseek(fd, 0, SEEK_END);
 	counter = size / BLOCK_SIZE;
-	printf("BLK_block_counter: File size %d bytes\n",size);
+
+	if (size % BLOCK_SIZE != 0)
+		counter++;
+
+	//printf("BlockCounter: File size %d bytes\n",size);
 
 	return counter;
+}
+
+
+int WriteFile(int fd, int block_num, const char * source)
+{
+	int fds, source_blocks, dest_blocks, move_blocks;
+	int i,j;
+	void * block, * end_blocks, * start;
+
+	fds = OpenFile(source);
+	source_blocks = BlockCounter(fds);
+	dest_blocks = BlockCounter(fd);
+
+	block = malloc(BLOCK_SIZE);
+
+	/*If we want to write the source file,at a specific block*/
+	/*Make sure to "push" blocks so as to not lose information of dest*/
+	if (block_num > -1 && block_num < dest_blocks)
+	{
+		move_blocks = dest_blocks - block_num;
+
+		end_blocks = malloc(move_blocks*BLOCK_SIZE);
+		start = end_blocks;
+		
+		/*Save dest's blocks that will have to be moved forward*/
+		for (i=block_num;i<dest_blocks;i++)
+		{
+			ReadBlock(fd, i, end_blocks);
+			end_blocks += BLOCK_SIZE;
+		}
+
+		end_blocks = start;/*reset pointer*/
+
+		/*Start writing source file at dest,starting from block_num block*/
+		for (i=0;i<source_blocks;i++)
+		{
+			ReadBlock(fds, i, block);
+			
+			WriteBlock(fd, block_num, block);			
+			block_num++;
+
+			if (block_num == dest_blocks)
+			{/*If dest file doesnt have more blocks to write*/
+			/*Write the rest of the source's blocks at the end of dest (append)*/
+				for (j=i+1;j<source_blocks;j++)
+				{
+					ReadBlock(fds, j, block);
+					WriteBlock(fd, -1, block);
+				}
+				break;
+			}
+		}
+
+		/*Finally move previously saved blocks of dest after the (now saved) source file*/
+		for (i=0;i<move_blocks;i++)
+		{
+			if (block_num == dest_blocks)
+			{/*If dest file doesnt have more blocks to write*/
+			/*Write the rest of "moved" blocks at the end of dest (append)*/
+				for (j=i;j<move_blocks;j++)	
+				{
+					WriteBlock(fd, -1, end_blocks);
+					end_blocks += BLOCK_SIZE;
+				}
+				break;
+			}
+			else
+			{
+				WriteBlock(fd, block_num, end_blocks);
+				end_blocks += BLOCK_SIZE;
+				block_num++;
+			}
+		}
+
+		end_blocks = start;/*reset pointer*/
+
+		free(end_blocks);
+	}
+	else if (block_num == -1)
+	{/*simply write at the end of dest file,block by block*/
+		block_num = BlockCounter(fd);
+
+		for (i=0;i<source_blocks;i++)
+		{
+			ReadBlock(fds, i, block);
+			WriteBlock(fd, -1, block);
+		}
+	}
+	else
+	{
+		printf("WriteFile: Invalid block num!\n");
+		free(block);
+		return -1;
+	}
+
+	CloseFile(fds);
+	free(block);
+
+	return block_num;
 }

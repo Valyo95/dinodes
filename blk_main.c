@@ -9,42 +9,35 @@ int main(int argc, char const *argv[])
 	int fd,i,error;
 	char * filename = "testfile";
 
-	fd = BLK_open_file(filename);
+	fd = OpenFile(filename);
 
-	error = BLK_add_blocks(fd, 2);
+	void * block;
+	block = malloc(BLOCK_SIZE);
 
-	if (error == -1)
-	{
-		printf("BLK_add_blocks error %d\n",error);
-		perror("BLK");
-	}
+	char * array = malloc(1024*sizeof(char));
+	for (i=0;i<1024;i++)
+		array[i] = 'A';
 
-	void * block1;
-	void * block2;
+	memcpy(block,array,BLOCK_SIZE);
+	WriteBlock(fd, -1, block);
 
-	BLK_read_block(fd,0,&block1);
-	BLK_read_block(fd,1,&block2);
+	for (i=0;i<1024;i++)
+		array[i] = 'B';
 
-	char test1[20],test2[20];
+	memcpy(block,array,BLOCK_SIZE);
+	//ReadBlock(fd,0,block);
+	WriteBlock(fd, -1, block);
 
-	strcpy(test1,"MANOS");
-	strcpy(test2,"TORAKIS");	
+	printf("Wrote to testfile.It now has %d blocks\n",BlockCounter(fd));
 
-	memcpy(block1, test1, strlen(test1)*sizeof(char));
-	memcpy(block2, test2, strlen(test2)*sizeof(char));
+	WriteFile(fd,1,"writetest");
+	printf("Wrote file writetest to file testfile!\n");
 
-	BLK_write_block(fd,0,block1);
-	BLK_write_block(fd,512,block2);
+	printf("testfile now has %d blocks!\n",BlockCounter(fd));
 
-
-
-	//BLK_delete_block(fd, "testfile", 1);
-	i = BLK_block_counter(fd);
-	printf("Block #: %d\n",i);
-
-	BLK_close_file(fd);
-
-	//remove(filename);
+	CloseFile(fd);
+	free(block);
+	free(array);
 
 	return 0;
 }
