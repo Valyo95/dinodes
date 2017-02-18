@@ -50,7 +50,7 @@ int md_add_block(metadata * md, int block_type)
 	if (block_type == 1)
 	{
 		dList = malloc(sizeof(dinodelist));
-		dList->prev = (md->block_count - md->lastListBlock);
+		dList->count = 0;
 		dList->next = -1;
 		dList->dinodes = malloc(md->listMax*sizeof(dinode));
 
@@ -102,6 +102,7 @@ int md_add_dinode(metadata * md, struct stat node_info, char type, int pointer)
 	}
 
 	md->last_dinodelist->dinodes[md->listIndex].node_info = node_info;
+	md->last_dinodelist->count++;
 
 	if (type == 'f')
 		md->last_dinodelist->dinodes[md->listIndex].pointer = pointer;
@@ -199,7 +200,7 @@ int md_printall(metadata *md)
 		{
 			dList = current->content;
 			printf("Type: DinodeList -");
-			printf("Previous: %d, Next: %d \nDinodes:\n",dList->prev, dList->next);
+			printf("Count: %d, Next: %d \nDinodes:\n",dList->count, dList->next);
 			
 			for (i=0;i<md->listMax;i++)
 			{
@@ -211,7 +212,7 @@ int md_printall(metadata *md)
 		{
 			dInfo = current->content;
 			printf("Type: dirInfo -");
-			printf("Next: %d, Count: %d\n",dInfo->next, dInfo->count);
+			printf("Count: %d, Next: %d\n", dInfo->count, dInfo->next);
 			for (i=0;i<dInfo->count;i++)
 			{
 				printf("Name: %s InodeNum: %d\n",dInfo->entries[i].name, dInfo->entries[i].dinode_num);
