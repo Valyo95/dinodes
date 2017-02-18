@@ -25,9 +25,16 @@ int main(int argc, char const *argv[])
 //    md_add_dinode(md,st,'d',0);
     int inodes = check_dir(argv[1], 2, 0, md);
     md_printall(md);
-    md_free(&md);
 
     printf("i_nodes needed = %d\n", inodes);
+
+    int fd;
+    fd = OpenFile("metadata.di");
+    md_writetofile(md, fd);
+    CloseFile(fd);
+
+    md_free(&md);
+    
     return 0;
 }
 

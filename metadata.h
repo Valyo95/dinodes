@@ -96,6 +96,7 @@ int md_create_dirInfo(metadata *md, dirInfo ** dInfo);
 int md_add_dirEntry(metadata *md, dirInfo ** dInfo, char name[30], int dinode_num);
 
 int md_free(metadata ** md);
-int md_printall(metadata *md);
+void md_printall(metadata *md);
+int md_writetofile(metadata *md, int fd);
 
 #endif

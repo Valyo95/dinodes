@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "metadata.h"
+#include "blocks.h"
 
 int md_create(metadata ** md, int block_size)
 {
@@ -111,6 +112,8 @@ int md_add_dinode(metadata * md, struct stat node_info, char type, int pointer)
 
 	md->listIndex++;
 	md->dinode_count++;
+
+	return 0;
 }
 
 
@@ -183,7 +186,7 @@ int md_free(metadata ** md)
 	return 0;
 }
 
-int md_printall(metadata *md)
+void md_printall(metadata *md)
 {
 	block * current = md->firstBlock;
 	int count = 0;
@@ -222,4 +225,62 @@ int md_printall(metadata *md)
 		putchar('\n');
 		current = current->next;
 	}
+}
+
+
+
+int md_writetofile(metadata *md, int fd)
+{
+	block * current = md->firstBlock;
+	void * writeblock = malloc(md->block_size);
+	void * start = writeblock;
+
+	dinodelist * dList;
+	dirInfo * dInfo;
+	int count = 0;
+
+
+	while (current !=NULL)
+	{
+		count ++;
+		if (current->type == 1)
+		{
+			dList = current->content;
+
+			memcpy(writeblock, &dList->count, sizeof(int));
+			writeblock+= sizeof(int);
+
+			memcpy(writeblock, &dList->next, sizeof(int));
+			writeblock+= sizeof(int);
+
+			memcpy(writeblock, dList->dinodes, dList->count*sizeof(dinode));
+
+			writeblock = start;
+
+			WriteBlock(fd, -1, writeblock);
+		}
+		else
+		{
+			dInfo = current->content;
+
+			memcpy(writeblock, &dInfo->count, sizeof(int));
+			writeblock+= sizeof(int);
+
+			memcpy(writeblock, &dInfo->next, sizeof(int));
+			writeblock+= sizeof(int);
+
+			printf("Write %d entries from block %d!\n",dInfo->count,count);
+			memcpy(writeblock, dInfo->entries, dInfo->count*sizeof(dirEntry));
+
+			writeblock = start;
+
+			WriteBlock(fd, -1, writeblock);
+		}
+
+		current = current->next;
+	}
+
+	free(writeblock);
+
+	return 0;
 }

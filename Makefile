@@ -10,8 +10,8 @@ LFLAGS= -Wall $(DEBUG)
 
 all: main $(SOURCE) $(HEADER)
 
-dirtest: dirtest.o funcs.o metadata.o block.o
-	$(CC) $(LFLAGS) dirtest.o funcs.o metadata.o block.o -o dirtest
+dirtest: dirtest.o funcs.o metadata.o blocks.o
+	$(CC) $(LFLAGS) dirtest.o funcs.o metadata.o blocks.o -o dirtest
 
 main: $(TESTOBJS)
 	$(CC) $(LFLAGS) $(TESTOBJS) -o main 
