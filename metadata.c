@@ -208,7 +208,7 @@ void md_printall(metadata *md)
 			for (i=0;i<md->listMax;i++)
 			{
 				dinode++;
-				printf("%d: stat:..., pointer: %d\n",dinode, dList->dinodes[i].pointer);
+				printf("%d: stat:..., pointer: %d, inodenum: %d\n",dinode, dList->dinodes[i].pointer, dList->dinodes[i].node_info.st_ino);
 			}
 		}
 		else
