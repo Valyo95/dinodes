@@ -7,7 +7,7 @@
 #include <string.h>
 #include "funcs.h"
 #include "metadata.h"
-
+#include "blocks.h"
 int check_dir(char *dir, int parent_num, int depth, metadata * md);
 
 
@@ -99,3 +99,67 @@ int check_dir(char *dirname, int parent_num, int depth, metadata * md)
     chdir("..");
     return count;   
 }
+
+
+int printMetadata(int metadataStart, int allInodes, int fd)
+{
+    void *start = malloc(BLOCK_SIZE*sizeof(char));
+    void *block = start;
+
+    int i = 0;
+    int currBlock = metadataStart;
+    int nodesPerBlock = 0;
+    int nextInodeBlock = 0;
+    dinodelist inode;
+    node **arr = malloc(allInodes*sizeof(struct node*));
+    struct dinode *temp = malloc(MAX_I_NODES*sizeof(struct dinode));
+    for (int i = 0; i < allInodes; ++i)
+    {
+        arr[i] = malloc(sizeof(struct node));
+    }
+    
+    do
+    {
+        ReadBlock(fd, currBlock, block);
+        memcpy(&nodesPerBlock, block, sizeof(int));
+        block += sizeof(int);
+        memcpy(&nextInodeBlock, block, sizeof(int));
+        block += sizeof(int);
+        
+        memcpy(temp, block, nodesPerBlock*sizeof(struct dinode));
+        int end = i+nodesPerBlock;
+        for(int j=i; j<end;j++)
+        {
+            arr[j+i]->block = currBlock;
+            arr[j+i]->offset = temp[j].pointer;
+            arr[j+i]->node_info = temp[j].node_info;
+            i++;
+        }
+
+        currBlock = nextInodeBlock;
+    } while (currBlock != -1);
+
+}
+/*
+int dirTraverse(int currInode, int allInodes, int blockNum, int fd, node **arr)
+{
+    void *start = malloc(BLOCK_SIZE*sizeof(char));
+    void *block = start;
+    dirInfo dir;
+    dir.entries = malloc(dir.count*sizeof(dirEntry));
+    ReadBlock(fd, blockNum, start);
+    memcpy(&(dir.count), block, sizeof(int));
+    block += sizeof(int);
+    memcpy(&(dir.next), block, sizeof(int));
+    block += sizeof(int);
+    
+    memcpy(dir.entries, block, dir.count*sizeof(dirEntry));
+    while(dir.next != -1)
+    {
+        for (int i = 0; i < dir.count; ++i)
+        {
+            
+        }
+    }   
+}
+*/

@@ -1,6 +1,14 @@
 #ifndef METADATA_H
 #define METADATA_H
 
+#ifndef MAX_I_NODES
+#define MAX_I_NODES (BLOCK_SIZE-2*sizeof(int))/sizeof(struct dinode)
+#endif
+
+#ifndef MAX_DIR_ENTRIES
+#define MAX_DIR_ENTRIES (BLOCK_SIZE - 2*sizeof(int))/sizeof(struct dirEntry)
+#endif
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -16,7 +24,7 @@ typedef struct dinode dinode;
 
 struct dinodelist
 {
-	int prev;
+	int count;
 	int next;
 	dinode * dinodes;
 };
@@ -71,6 +79,14 @@ struct metadata
 	int dirMax;
 };
 typedef struct metadata metadata;
+
+
+typedef struct node
+{
+	struct stat node_info;
+	int block;
+	int offset;	
+}node ;
 
 int md_create(metadata ** md, int block_size);
 int md_add_block(metadata * md, int block_type);
