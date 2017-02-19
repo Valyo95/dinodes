@@ -269,7 +269,7 @@ int md_writetofile(metadata *md, int fd)
 			memcpy(writeblock, &dInfo->next, sizeof(int));
 			writeblock+= sizeof(int);
 
-			printf("Write %d entries from block %d!\n",dInfo->count,count);
+	//		printf("Write %d entries from block %d!\n",dInfo->count,count);
 			memcpy(writeblock, dInfo->entries, dInfo->count*sizeof(dirEntry));
 
 			writeblock = start;
