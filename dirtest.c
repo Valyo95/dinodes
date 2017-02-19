@@ -56,7 +56,7 @@ int check_dir(char *dirname, int parent_num, int depth, metadata * md)
 
     stat(dirname, &st);
     md_add_dinode(md,st,'d',0);
-            printStat(st);
+    printStat(st);
 
 	chdir(dirname);
     dinode_num = md->dinode_count;
