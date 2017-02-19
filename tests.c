@@ -77,11 +77,7 @@ int test_metadata()
 
 int test_checkdir(char *directory)
 {
-	struct stat st;
-
-    DIR *dir;
-    struct dirent *dp;
-    char cur_dir[1024];
+	char cur_dir[1024];
     getcwd(cur_dir,1024);
     
     printf("Checking dir: %s\n\n",directory );

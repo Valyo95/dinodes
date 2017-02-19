@@ -28,7 +28,7 @@ int md_create(metadata ** md, int block_size)
 	mdp->dirMax = (block_size - 2*sizeof(int)) / sizeof(dirEntry);
 
 	printf("metadata created for block size %d\n",block_size);
-	printf("size of stat is %d\n",sizeof(struct stat));
+	printf("size of stat is %ld\n",sizeof(struct stat));
 	printf("maxList %d, maxDirinfo %d\n\n",mdp->listMax,mdp->dirMax);
 
 	return 0;
@@ -208,7 +208,7 @@ void md_printall(metadata *md)
 			for (i=0;i<dList->count;i++)
 			{
 				dinode++;
-				printf("%d: stat:..., pointer: %d, inodenum: %d\n",dinode, dList->dinodes[i].pointer, dList->dinodes[i].node_info.st_ino);
+				printf("%d: stat:..., pointer: %d, inodenum: %ld\n",dinode, dList->dinodes[i].pointer, dList->dinodes[i].node_info.st_ino);
 			}
 		}
 		else

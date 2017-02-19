@@ -150,3 +150,207 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
 
     return count;   
 }
+
+
+
+int getMetaDataBlock(char *fileName)
+{
+    Header head;
+    void *block = malloc(BLOCK_SIZE*sizeof(char));
+    int fd = OpenFile(fileName);
+
+    ReadBlock(fd, 0, block);
+    memcpy(&head, block, sizeof(Header));
+/*    printf("FILE_SIZE: %d\n",head.file_size);
+    printf("DINODES: %d\n",head.dinodes);
+    printf("METADATA_BLOCK: %d\n",head.metadata_block);
+*/
+    CloseFile(fd);
+    free(block);
+    return head.metadata_block;
+}
+
+int getInodesNum(char *fileName)
+{
+    Header head;
+    void *block = malloc(BLOCK_SIZE*sizeof(char));
+    int fd = OpenFile(fileName);
+
+    ReadBlock(fd, 0, block);
+    memcpy(&head, block, sizeof(Header));
+/*    printf("FILE_SIZE: %d\n",head.file_size);
+    printf("DINODES: %d\n",head.dinodes);
+    printf("METADATA_BLOCK: %d\n",head.metadata_block);
+*/
+    CloseFile(fd);
+    free(block);
+    return head.dinodes;
+}
+
+
+node ** getInodesArray(int fd, int metadataStart, int allInodes)
+{
+    void *start = malloc(BLOCK_SIZE*sizeof(char));
+    void *block = start;
+    int i = 0;
+    int currBlock = metadataStart;
+    int nodesPerBlock = 0;
+    int nextInodeBlock = 0;
+    node **arr = malloc(allInodes*sizeof(struct node*));
+    struct dinode *temp = malloc(MAX_I_NODES*sizeof(struct dinode));
+    for (int i = 0; i < allInodes; ++i)
+    {
+        arr[i] = malloc(sizeof(struct node));
+    }
+    
+    do
+    {
+        ReadBlock(fd, currBlock, block);
+        memcpy(&nodesPerBlock, block, sizeof(int));
+        block += sizeof(int);
+        memcpy(&nextInodeBlock, block, sizeof(int));
+        block += sizeof(int);
+        
+        memcpy(temp, block, nodesPerBlock*sizeof(struct dinode));
+        int end = nodesPerBlock;
+        for(int j=0; j<end;j++)
+        {
+            arr[i]->block = currBlock;
+            arr[i]->offset = temp[j].pointer;
+            arr[i]->node_info = temp[j].node_info;
+            i++;
+        }
+        currBlock+= nextInodeBlock;
+        block = start;
+    } while (nextInodeBlock != -1);
+    free(start);
+    free(temp);
+    return arr;
+}
+
+int printMetadata(int metadataStart, int allInodes, int fd)
+{
+    printf("-------Starting printMetadata()-------\n");
+    //printf("metadataStart: %d, allInodes: %d, fd: %d\n", metadataStart, allInodes, fd);
+    void *start = malloc(BLOCK_SIZE*sizeof(char));
+    void *block = start;
+
+    int i = 0;
+    int currBlock = metadataStart;
+    int nodesPerBlock = 0;
+    int nextInodeBlock = 0;
+    node **arr = malloc(allInodes*sizeof(struct node*));
+    struct dinode *temp = malloc(MAX_I_NODES*sizeof(struct dinode));
+    for (int i = 0; i < allInodes; ++i)
+    {
+        arr[i] = malloc(sizeof(struct node));
+    }
+    
+    do
+    {
+        ReadBlock(fd, currBlock, block);
+        memcpy(&nodesPerBlock, block, sizeof(int));
+        block += sizeof(int);
+        memcpy(&nextInodeBlock, block, sizeof(int));
+        block += sizeof(int);
+        
+        memcpy(temp, block, nodesPerBlock*sizeof(struct dinode));
+        int end = nodesPerBlock;
+    //      printf("Blocknum = %d, nextInodeBlock = %d, nodesPerBlock = %d, end = %d  \n", currBlock, nextInodeBlock, nodesPerBlock, end);
+        for(int j=0; j<end;j++)
+        {
+    //        printf("j = %d, i = %d, currBlock = %d\n", j, i, currBlock);
+    //        printf("pointer : %d, \n", temp[j].pointer );
+            arr[i]->block = currBlock;
+            arr[i]->offset = temp[j].pointer;
+            arr[i]->node_info = temp[j].node_info;
+            //printArrayNode(arr[i]);
+        //printf("\n");
+            i++;
+        }
+        currBlock+= nextInodeBlock;
+        block = start;
+    } while (nextInodeBlock != -1);
+/*    for (int i = 0; i < allInodes; ++i)
+    {
+        printArrayNode(arr[i]);
+        printf("\n");
+    }
+*/      dirTraverse(arr[0]->block + arr[0]->offset, fd, arr, 0);
+
+    for (int i = 0; i < allInodes; ++i)
+    {
+        free(arr[i]);
+    }
+    free(temp);
+    free(arr);
+    free(block);    
+    return 0;
+
+}
+
+
+void printArrayNode(node *inode)
+{
+    printf("inode: %ld\tblock: %d\toffset: %d\n", inode->node_info.st_ino, inode->block, inode->offset);
+    //printStat(inode->node_info);
+    return;
+}
+
+
+int dirTraverse(int blockNum, int fd, node **arr, int depth)
+{
+    //printf("blockNum = %d, fd = %d, depth = %d\n", blockNum, fd, depth);
+
+    int i;
+    void *start = malloc(BLOCK_SIZE*sizeof(char));
+    void *block = start;
+    dirInfo dir;
+    dir.entries = malloc(MAX_DIR_ENTRIES*sizeof(dirEntry));
+    do
+    {
+        ReadBlock(fd, blockNum, start);
+        memcpy(&(dir.count), block, sizeof(int));
+        block += sizeof(int);
+        memcpy(&(dir.next), block, sizeof(int));
+        block += sizeof(int);
+        memcpy(dir.entries, block, dir.count*sizeof(dirEntry));
+        
+        for (i = 0; i < dir.count; ++i)
+        {
+            if ( !strcmp(dir.entries[i].name, ".") || !strcmp(dir.entries[i].name, "..") )
+            {
+                continue;
+            }
+            for (int i = 0; i < depth; ++i)
+            {
+                printf("|");
+                if(i == depth-1)
+                    printf("----");
+                else
+                    printf("\t");
+            }
+            int inodeNum = dir.entries[i].dinode_num-1;
+            printf("%s \n", dir.entries[i].name);
+        //            printf("inodenum = %d\n\n\n", inodeNum);
+        //            printStat(arr[inodeNum]->node_info);
+            if(S_ISDIR(arr[inodeNum]->node_info.st_mode))
+            {
+                //printf("%s is a DIR\n", dir.entries[i].name);
+                //printf("block = %d, offset = %d, inode = %d\n",arr[inodeNum]->block, arr[inodeNum]->offset, arr[inodeNum]->node_info.st_ino );            
+                //printf("\n");
+                dirTraverse(arr[inodeNum]->block + arr[inodeNum]->offset, fd, arr, depth+1);
+            }
+            else
+            {
+
+            }    
+        }
+    } while (dir.next != -1);
+
+    free(dir.entries);
+    free(start);
+    return 0;
+}
+
+
