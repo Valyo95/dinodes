@@ -39,18 +39,14 @@ int main(int argc, char const *argv[])
 	int metaDataStartBlock = head.metadata_block;
 	int inodesNum = head.dinodes;
 
-	node **arr = getInodesArray(fd, metaDataStartBlock, inodesNum);
+	node *arr = getInodesArray(fd);
    	for (int i = 0; i < inodesNum; ++i)
     {
         printArrayNode(arr[i]);
     }
 
-	printMetadata(metaDataStartBlock, inodesNum, fd);
+	printMetadata(fd);
 
-	for (int i = 0; i < inodesNum; ++i)
-    {
-     	free(arr[i]);
-    }
     free(arr);
 
 

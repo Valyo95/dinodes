@@ -157,19 +157,17 @@ int di_find_dirlist(int fd, listofdirs * dirlist)
 {
 	int found = 1;
 	int count = 0;
-	int i;
 
 	dirNode * current = dirlist->first;
 	char * file_name;
 
-	Header head = di_getHeader(fd);
-	node ** dinodes_array = getInodesArray(fd, head.metadata_block, head.dinodes);
+	node * dinodes_array = getInodesArray(fd);
 
 	while (current != NULL)
 	{
 		file_name = current->dir;
 
-		if (!di_find_dir(fd, file_name, dinodes_array[0]->block + dinodes_array[0]->offset, dinodes_array))
+		if (!di_find_dir(fd, file_name, dinodes_array[0].block + dinodes_array[0].offset, dinodes_array))
 		{
 			printf("'%s' was NOT found!\n", file_name);
 			found = 0;
@@ -183,10 +181,6 @@ int di_find_dirlist(int fd, listofdirs * dirlist)
         current = current->next;
 	}
 
-	for (i = 0; i < head.dinodes; ++i)
-    {
-        free(dinodes_array[i]);
-    }
     free(dinodes_array);
 
 	if (found)
@@ -204,7 +198,7 @@ int di_find_dirlist(int fd, listofdirs * dirlist)
 
 
 
-int di_find_dir(int fd, char * dirname,int blockNum, node **arr)
+int di_find_dir(int fd, char * dirname,int blockNum, node *arr)
 {
     //printf("blockNum = %d, fd = %d, depth = %d\n", blockNum, fd, depth);
 
@@ -235,9 +229,9 @@ int di_find_dir(int fd, char * dirname,int blockNum, node **arr)
 
             int inodeNum = dir.entries[i].dinode_num - 1;
 
-            if(S_ISDIR(arr[inodeNum]->node_info.st_mode))
+            if(S_ISDIR(arr[inodeNum].node_info.st_mode))
             {
-                if ( di_find_dir(fd, dirname, arr[inodeNum]->block + arr[inodeNum]->offset, arr) == 1)
+                if ( di_find_dir(fd, dirname, arr[inodeNum].block + arr[inodeNum].offset, arr) == 1)
                 	return 1;
             }
 
@@ -269,22 +263,24 @@ Header di_getHeader(int fd)
 }
 
 
-node ** getInodesArray(int fd, int metadataStart, int allInodes)
+node * getInodesArray(int fd)
 {
-    void *start = malloc(BLOCK_SIZE*sizeof(char));
-    void *block = start;
     int i = 0;
-    int currBlock = metadataStart;
     int nodesPerBlock = 0;
     int nextInodeBlock = 0;
-    node **arr = malloc(allInodes*sizeof(struct node*));
+    void *start = malloc(BLOCK_SIZE*sizeof(char));
+    void *block = start;
+
+    Header head;
+    head = di_getHeader(fd);
+
+    int currBlock = head.metadata_block;
+    int allInodes = head.dinodes;
+
+    node *arr = malloc(allInodes*sizeof(struct node));
     struct dinode *temp = malloc(MAX_I_NODES*sizeof(struct dinode));
 
-    for (int i = 0; i < allInodes; ++i)
-    {
-        arr[i] = malloc(sizeof(struct node));
-    }
-    
+
     do
     {
         ReadBlock(fd, currBlock, block);
@@ -297,9 +293,9 @@ node ** getInodesArray(int fd, int metadataStart, int allInodes)
         int end = nodesPerBlock;
         for(int j=0; j<end;j++)
         {
-            arr[i]->block = currBlock;
-            arr[i]->offset = temp[j].pointer;
-            arr[i]->node_info = temp[j].node_info;
+            arr[i].block = currBlock;
+            arr[i].offset = temp[j].pointer;
+            arr[i].node_info = temp[j].node_info;
             i++;
         }
         currBlock+= nextInodeBlock;
@@ -312,77 +308,29 @@ node ** getInodesArray(int fd, int metadataStart, int allInodes)
     return arr;
 }
 
-int printMetadata(int metadataStart, int allInodes, int fd)
+int printMetadata(int fd)
 {
     printf("-------Starting printMetadata()-------\n");
-    //printf("metadataStart: %d, allInodes: %d, fd: %d\n", metadataStart, allInodes, fd);
-    void *start = malloc(BLOCK_SIZE*sizeof(char));
-    void *block = start;
+	
+    node * arr = getInodesArray(fd);
 
-    int i = 0;
-    int currBlock = metadataStart;
-    int nodesPerBlock = 0;
-    int nextInodeBlock = 0;
-    node **arr = malloc(allInodes*sizeof(struct node*));
-    struct dinode *temp = malloc(MAX_I_NODES*sizeof(struct dinode));
-    for (int i = 0; i < allInodes; ++i)
-    {
-        arr[i] = malloc(sizeof(struct node));
-    }
-    
-    do
-    {
-        ReadBlock(fd, currBlock, block);
-        memcpy(&nodesPerBlock, block, sizeof(int));
-        block += sizeof(int);
-        memcpy(&nextInodeBlock, block, sizeof(int));
-        block += sizeof(int);
-        
-        memcpy(temp, block, nodesPerBlock*sizeof(struct dinode));
-        int end = nodesPerBlock;
-    //      printf("Blocknum = %d, nextInodeBlock = %d, nodesPerBlock = %d, end = %d  \n", currBlock, nextInodeBlock, nodesPerBlock, end);
-        for(int j=0; j<end;j++)
-        {
-    //        printf("j = %d, i = %d, currBlock = %d\n", j, i, currBlock);
-    //        printf("pointer : %d, \n", temp[j].pointer );
-            arr[i]->block = currBlock;
-            arr[i]->offset = temp[j].pointer;
-            arr[i]->node_info = temp[j].node_info;
-            //printArrayNode(arr[i]);
-        //printf("\n");
-            i++;
-        }
-        currBlock+= nextInodeBlock;
-        block = start;
-    } while (nextInodeBlock != -1);
-/*    for (int i = 0; i < allInodes; ++i)
-    {
-        printArrayNode(arr[i]);
-        printf("\n");
-    }
-*/      dirTraverse(arr[0]->block + arr[0]->offset, fd, arr, 0);
+	dirTraverse(arr[0].block + arr[0].offset, fd, arr, 0);
 
-    for (int i = 0; i < allInodes; ++i)
-    {
-        free(arr[i]);
-    }
-    free(temp);
     free(arr);
-    free(block);    
-    return 0;
 
+    return 0;
 }
 
 
-void printArrayNode(node *inode)
+void printArrayNode(node inode)
 {
-    printf("inode: %ld\tblock: %d\toffset: %d\n", inode->node_info.st_ino, inode->block, inode->offset);
+    printf("inode: %ld\tblock: %d\toffset: %d\n", inode.node_info.st_ino, inode.block, inode.offset);
     //printStat(inode->node_info);
     return;
 }
 
 
-int dirTraverse(int blockNum, int fd, node **arr, int depth)
+int dirTraverse(int blockNum, int fd, node *arr, int depth)
 {
     //printf("blockNum = %d, fd = %d, depth = %d\n", blockNum, fd, depth);
 
@@ -418,12 +366,12 @@ int dirTraverse(int blockNum, int fd, node **arr, int depth)
             printf("%s \n", dir.entries[i].name);
         //            printf("inodenum = %d\n\n\n", inodeNum);
         //            printStat(arr[inodeNum]->node_info);
-            if(S_ISDIR(arr[inodeNum]->node_info.st_mode))
+            if(S_ISDIR(arr[inodeNum].node_info.st_mode))
             {
                 //printf("%s is a DIR\n", dir.entries[i].name);
                 //printf("block = %d, offset = %d, inode = %d\n",arr[inodeNum]->block, arr[inodeNum]->offset, arr[inodeNum]->node_info.st_ino );            
                 //printf("\n");
-                dirTraverse(arr[inodeNum]->block + arr[inodeNum]->offset, fd, arr, depth+1);
+                dirTraverse(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1);
             }
             else
             {

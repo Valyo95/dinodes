@@ -174,7 +174,6 @@ int WriteFile(int fd, int block_num, const char * source)
 	else if (block_num == -1)
 	{/*simply write at the end of dest file,block by block*/
 		block_num = BlockCounter(fd);
-		printf("!!!BLOCK NUM %d!!\n",block_num);
 
 		for (i=0;i<source_blocks;i++)
 		{
