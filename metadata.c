@@ -205,7 +205,7 @@ void md_printall(metadata *md)
 			printf("Type: DinodeList -");
 			printf("Count: %d, Next: %d \nDinodes:\n",dList->count, dList->next);
 			
-			for (i=0;i<md->listMax;i++)
+			for (i=0;i<dList->count;i++)
 			{
 				dinode++;
 				printf("%d: stat:..., pointer: %d\n",dinode, dList->dinodes[i].pointer);
