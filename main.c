@@ -27,13 +27,17 @@ int main(int argc, char const *argv[])
 	
 
 	di_createfile("testcreate.di", dirlist);
+
 	int fd = OpenFile("testcreate.di");
 	int blks = BlockCounter(fd);
 	printf("file has %d blocks\n", blks);
 	dirlist_free(&dirlist);
 
-	int metaDataStartBlock = getMetaDataBlock("testcreate.di");
-	int inodesNum = getInodesNum("testcreate.di");
+	Header head;
+	head = di_getHeader(fd);
+
+	int metaDataStartBlock = head.metadata_block;
+	int inodesNum = head.dinodes;
 
 	node **arr = getInodesArray(fd, metaDataStartBlock, inodesNum);
    	for (int i = 0; i < inodesNum; ++i)
@@ -48,5 +52,27 @@ int main(int argc, char const *argv[])
      	free(arr[i]);
     }
     free(arr);
+
+
+    /*find listofdirst test*/
+    dirlist_create(&dirlist);
+    dirlist_add_dir(dirlist, "ekf");
+    dirlist_add_dir(dirlist, "dirA");
+    dirlist_add_dir(dirlist, "dirB");
+    dirlist_add_dir(dirlist, "file1");
+    dirlist_add_dir(dirlist, "file2");
+    dirlist_add_dir(dirlist, "file3");
+    dirlist_add_dir(dirlist, "file5");
+    dirlist_add_dir(dirlist, "file6");
+    //something not inside
+    dirlist_add_dir(dirlist, "blablabla");
+
+    di_find_dirlist(fd, dirlist);
+    dirlist_free(&dirlist);
+
+
+    CloseFile(fd);
+    remove("testcreate.di");
+
 	return 0;
 }

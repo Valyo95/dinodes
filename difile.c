@@ -153,38 +153,119 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
 
 
 
-int getMetaDataBlock(char *fileName)
+int di_find_dirlist(int fd, listofdirs * dirlist)
 {
-    Header head;
-    void *block = malloc(BLOCK_SIZE*sizeof(char));
-    int fd = OpenFile(fileName);
+	int found = 1;
+	int count = 0;
+	int i;
 
-    ReadBlock(fd, 0, block);
-    memcpy(&head, block, sizeof(Header));
-/*    printf("FILE_SIZE: %d\n",head.file_size);
-    printf("DINODES: %d\n",head.dinodes);
-    printf("METADATA_BLOCK: %d\n",head.metadata_block);
-*/
-    CloseFile(fd);
-    free(block);
-    return head.metadata_block;
+	dirNode * current = dirlist->first;
+	char * file_name;
+
+	Header head = di_getHeader(fd);
+	node ** dinodes_array = getInodesArray(fd, head.metadata_block, head.dinodes);
+
+	while (current != NULL)
+	{
+		file_name = current->dir;
+
+		if (!di_find_dir(fd, file_name, dinodes_array[0]->block + dinodes_array[0]->offset, dinodes_array))
+		{
+			printf("'%s' was NOT found!\n", file_name);
+			found = 0;
+		}
+		else
+		{
+			printf("'%s' was found!\n", file_name);
+			count++;
+		}
+
+        current = current->next;
+	}
+
+	for (i = 0; i < head.dinodes; ++i)
+    {
+        free(dinodes_array[i]);
+    }
+    free(dinodes_array);
+
+	if (found)
+	{
+		printf("List of dirs found!\n");
+		return 1;
+	}
+	else
+	{
+		printf("List of dirs not in di file!(%d found)\n",count);
+		return 0;
+	}
+	
 }
 
-int getInodesNum(char *fileName)
+
+
+int di_find_dir(int fd, char * dirname,int blockNum, node **arr)
+{
+    //printf("blockNum = %d, fd = %d, depth = %d\n", blockNum, fd, depth);
+
+    int i;
+    void *start = malloc(BLOCK_SIZE*sizeof(char));
+    void *block = start;
+    dirInfo dir;
+    dir.entries = malloc(MAX_DIR_ENTRIES*sizeof(dirEntry));
+    
+    do
+    {
+        ReadBlock(fd, blockNum, start);
+        memcpy(&(dir.count), block, sizeof(int));
+        block += sizeof(int);
+        memcpy(&(dir.next), block, sizeof(int));
+        block += sizeof(int);
+        memcpy(dir.entries, block, dir.count*sizeof(dirEntry));
+        
+        for (i = 0; i < dir.count; ++i)
+        {
+            if ( !strcmp(dir.entries[i].name, ".") || !strcmp(dir.entries[i].name, "..") )
+            {
+                continue;
+            }
+
+            if ( !strcmp(dirname, dir.entries[i].name))
+      			return 1;
+
+            int inodeNum = dir.entries[i].dinode_num - 1;
+
+            if(S_ISDIR(arr[inodeNum]->node_info.st_mode))
+            {
+                if ( di_find_dir(fd, dirname, arr[inodeNum]->block + arr[inodeNum]->offset, arr) == 1)
+                	return 1;
+            }
+
+        }
+
+    } while (dir.next != -1);
+
+    free(dir.entries);
+    free(start);
+    return 0;
+}
+
+
+
+Header di_getHeader(int fd)
 {
     Header head;
-    void *block = malloc(BLOCK_SIZE*sizeof(char));
-    int fd = OpenFile(fileName);
+    void *block = malloc(BLOCK_SIZE);
 
     ReadBlock(fd, 0, block);
     memcpy(&head, block, sizeof(Header));
-/*    printf("FILE_SIZE: %d\n",head.file_size);
+/*  printf("FILE_SIZE: %d\n",head.file_size);
     printf("DINODES: %d\n",head.dinodes);
     printf("METADATA_BLOCK: %d\n",head.metadata_block);
 */
-    CloseFile(fd);
     free(block);
-    return head.dinodes;
+    
+    return head;
 }
 
 
@@ -198,6 +279,7 @@ node ** getInodesArray(int fd, int metadataStart, int allInodes)
     int nextInodeBlock = 0;
     node **arr = malloc(allInodes*sizeof(struct node*));
     struct dinode *temp = malloc(MAX_I_NODES*sizeof(struct dinode));
+
     for (int i = 0; i < allInodes; ++i)
     {
         arr[i] = malloc(sizeof(struct node));
@@ -223,8 +305,10 @@ node ** getInodesArray(int fd, int metadataStart, int allInodes)
         currBlock+= nextInodeBlock;
         block = start;
     } while (nextInodeBlock != -1);
+
     free(start);
     free(temp);
+
     return arr;
 }
 
@@ -352,5 +436,3 @@ int dirTraverse(int blockNum, int fd, node **arr, int depth)
     free(start);
     return 0;
 }
-
-
