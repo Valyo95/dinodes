@@ -433,6 +433,7 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
                 int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
                 chmod(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
                 close(ffd);
+                ExtractFile(fd, dir.entries[i].name, arr[inodeNum].block, arr[inodeNum].node_info.st_size);
             }    
         }
     } while (dir.next != -1);

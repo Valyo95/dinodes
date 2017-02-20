@@ -41,6 +41,10 @@ int main(int argc, char const *argv[])
 */
 //	printMetadata(fd);
 
+    /*Extract file test*/
+    ExtractFile(fd, "file3", 4, 1486);
+    printf("done extractFile\n");
+
     extractDiFile(fd);
     free(arr);
 

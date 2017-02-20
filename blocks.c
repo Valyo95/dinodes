@@ -27,7 +27,7 @@ int ReadBlock(int fd, int block_num, void * block)
 
 	if (block_num < 0 || block_num >= blocks)
 	{
-		fprintf(stderr, "BLK_read_block:Invalid block num!\n");
+		fprintf(stderr, "ReadBlock:Invalid block num!\n");
 		return -2;
 	}
 
@@ -196,12 +196,20 @@ int WriteFile(int fd, int block_num, const char * source)
 
 
 
-int ExtractFile(int fd, char * filename, int start_block, int file_size)
+int ExtractFile(int fd, char * filename, int start_block, off_t file_size)
 {
 	int extract_fd = OpenFile(filename);
+
+	if (BlockCounter(extract_fd) != 0)
+	{/*file already exists,do nothing*/
+		printf("ExtractFile: File '%s' already exists\n", filename);
+		CloseFile(extract_fd);
+		return -1;
+	}
 	
 	int full_blocks = file_size / BLOCK_SIZE;
 	int remaining_bytes = file_size % BLOCK_SIZE;
+	printf("%d %d\n",full_blocks,remaining_bytes);
 	int i;
 	int curr_block = start_block;
 	void * block = malloc(BLOCK_SIZE);
@@ -217,7 +225,7 @@ int ExtractFile(int fd, char * filename, int start_block, int file_size)
 	if (remaining_bytes > 0)
 	{
 		lastblock = malloc(remaining_bytes);
-		
+
 		lseek(fd, curr_block*BLOCK_SIZE, SEEK_SET);
 		read(fd, lastblock, remaining_bytes);
 		lseek(extract_fd, 0, SEEK_END);
@@ -227,7 +235,7 @@ int ExtractFile(int fd, char * filename, int start_block, int file_size)
 	}
 
 	free(block);
-	CloseFile(fd);
+	CloseFile(extract_fd);
 
 	return 0;
 }

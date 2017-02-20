@@ -11,6 +11,6 @@ int WriteBlock(int fd, int block_num, void * block);
 int BlockCounter(int fd);
 
 int WriteFile(int fd, int block_num, const char * source);
-int ExtractFile(int fd, char * filename, int start_block, int file_size);
+int ExtractFile(int fd, char * filename, int start_block, off_t file_size);
 
 #endif
