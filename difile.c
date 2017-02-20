@@ -6,7 +6,8 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <fcntl.h>
-
+#include <utime.h>
+#include <time.h>
 
 #include "difile.h"
 #include "dirlist.h"
@@ -47,47 +48,48 @@ int di_createfile(char * filename, listofdirs * dirlist)
     md_add_dirEntry(md,&dInfo,".", 1);
     md_add_dirEntry(md,&dInfo,"..", 1);
 
-	dirNode * current = dirlist->first;
-	char * file_name;
+    dirNode * current = dirlist->first;
+    char * file_name;
 
-	while (current != NULL)
-	{
-		count++;
-	    int file_block;
+    while (current != NULL)
+    {
+        count++;
+        int file_block;
 
-		file_name = current->dir;
-		stat(file_name, &st);
+        file_name = current->dir;
+        stat(file_name, &st);
 
-		md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
+        md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
 
-		if(S_ISDIR(st.st_mode))
+        if(S_ISDIR(st.st_mode))
         {
-        	count += di_add_dir(fd, file_name, 1, md);
+            count += di_add_dir(fd, file_name, 1, md);
         }
         else
         {
-        	file_block = WriteFile(fd, -1, file_name);
+    printf("hello\n");
+            file_block = WriteFile(fd, -1, file_name);
             md_add_dinode(md, st,'f', file_block);
         }
 
         current = current->next;
-	}
+    }
 
-	/*WRITE CORRECT HEADER*/
-	head.file_size = (BlockCounter(fd) + md->block_count)*BLOCK_SIZE;
-	head.dinodes = md->dinode_count;
-	head.metadata_block = BlockCounter(fd);
+    /*WRITE CORRECT HEADER*/
+    head.file_size = (BlockCounter(fd) + md->block_count)*BLOCK_SIZE;
+    head.dinodes = md->dinode_count;
+    head.metadata_block = BlockCounter(fd);
 
-	memcpy(block, &head, sizeof(head));
-	WriteBlock(fd, 0, block);
+    memcpy(block, &head, sizeof(head));
+    WriteBlock(fd, 0, block);
 
-	md_writetofile(md, fd);
-	md_printall(md);
+    md_writetofile(md, fd);
+    md_printall(md);
 
-	printf("DI FILE '%s' CREATED!Printing head:\n", filename);
-	printf("FILE_SIZE: %d\n",head.file_size);
-	printf("DINODES: %d\n",head.dinodes);
-	printf("METADATA_BLOCK: %d\n",head.metadata_block);
+    printf("DI FILE '%s' CREATED!Printing head:\n", filename);
+    printf("FILE_SIZE: %d\n",head.file_size);
+    printf("DINODES: %d\n",head.dinodes);
+    printf("METADATA_BLOCK: %d\n",head.metadata_block);
 
 	CloseFile(fd);
 	md_free(&md);
@@ -308,6 +310,15 @@ node * getInodesArray(int fd)
             arr[i].block = currBlock;
             arr[i].offset = temp[j].pointer;
             arr[i].node_info = temp[j].node_info;
+            arr[i].pathnameLenght = 0;
+            arr[i].pathname = NULL;
+            
+            if (arr[i].node_info.st_nlink > 1)
+                arr[i].extracted = 0;
+            else
+                arr[i].extracted = 1;
+                
+            
             i++;
         }
         currBlock+= nextInodeBlock;
@@ -432,24 +443,36 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
             if ( !strcmp(dir.entries[i].name, ".") || !strcmp(dir.entries[i].name, "..") )
                 continue;
             int inodeNum = dir.entries[i].dinode_num-1;
+            struct utimbuf times;
+            times.actime = arr[inodeNum].node_info.st_atime;
+            times.modtime = arr[inodeNum].node_info.st_mtime;
+
+    printf("Last file access:         %s", ctime(&times.actime));
+    printf("Last file modification:   %s", ctime(&times.modtime));
+            
             if(S_ISDIR(arr[inodeNum].node_info.st_mode))
             {
-                    mkdir(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
-                    chdir(dir.entries[i].name);
-                    extractDir(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1);
+                printf("up one was dir %s\n", dir.entries[i].name);
+                mkdir(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
+                chdir(dir.entries[i].name);
+                extractDir(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1);
+                chdir("..");
+                if (utime(dir.entries[i].name, &times) != 0)
+                    perror("utime() error");
             }
             else
             {
                 int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
                 chmod(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
-                close(ffd);
                 ExtractFile(fd, dir.entries[i].name, arr[inodeNum].block, arr[inodeNum].node_info.st_size);
+                close(ffd);
+                if (utime(dir.entries[i].name, &times) != 0)
+                    perror("utime() error");
             }    
         }
     } while (dir.next != -1);
 
     free(dir.entries);
     free(start);
-    chdir("..");
     return 0;
 }

@@ -85,7 +85,11 @@ typedef struct node
 {
 	struct stat node_info;
 	int block;
-	int offset;	
+	int offset;
+
+	char extracted;
+	int pathnameLenght;
+	char *pathname;
 }node ;
 
 int md_create(metadata ** md, int block_size);

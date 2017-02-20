@@ -24,7 +24,6 @@ int main(int argc, char const *argv[])
 	dirlist_create(&dirlist);
 	dirlist_add_dir(dirlist, "ekf");
 //	dirlist_add_dir(dirlist, "tempdir");
-	
 
 	di_createfile("testcreate.di", dirlist);
 
