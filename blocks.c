@@ -193,3 +193,41 @@ int WriteFile(int fd, int block_num, const char * source)
 
 	return block_num;
 }
+
+
+
+int ExtractFile(int fd, char * filename, int start_block, int file_size)
+{
+	int extract_fd = OpenFile(filename);
+	
+	int full_blocks = file_size / BLOCK_SIZE;
+	int remaining_bytes = file_size % BLOCK_SIZE;
+	int i;
+	int curr_block = start_block;
+	void * block = malloc(BLOCK_SIZE);
+	void * lastblock;
+
+	for (i=0;i<full_blocks;i++)
+	{
+		ReadBlock(fd, curr_block, block);
+		WriteBlock(extract_fd, -1, block);
+		curr_block++;
+	}
+
+	if (remaining_bytes > 0)
+	{
+		lastblock = malloc(remaining_bytes);
+		
+		lseek(fd, curr_block*BLOCK_SIZE, SEEK_SET);
+		read(fd, lastblock, remaining_bytes);
+		lseek(extract_fd, 0, SEEK_END);
+		write(extract_fd, lastblock, remaining_bytes);
+
+		free(lastblock);
+	}
+
+	free(block);
+	CloseFile(fd);
+
+	return 0;
+}
