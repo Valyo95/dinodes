@@ -229,14 +229,22 @@ int di_find_dir(int fd, char * dirname,int blockNum, node *arr)
             }
 
             if ( !strcmp(dirname, dir.entries[i].name))
+            {
+            	free(dir.entries);
+    			free(start);
       			return 1;
+            }
 
             int inodeNum = dir.entries[i].dinode_num - 1;
 
             if(S_ISDIR(arr[inodeNum].node_info.st_mode))
             {
                 if ( di_find_dir(fd, dirname, arr[inodeNum].block + arr[inodeNum].offset, arr) == 1)
+                {
+                	free(dir.entries);
+    				free(start);
                 	return 1;
+                }
             }
 
         }
@@ -398,6 +406,8 @@ int extractDiFile(int fd)
 
     extractDir(arr[0].block + arr[0].offset, fd, arr, 0);
     chdir("..");
+
+    free(arr);
     return 0;
 }
 
