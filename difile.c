@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <utime.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "difile.h"
 #include "dirlist.h"
@@ -304,7 +305,7 @@ node * getInodesArray(int fd)
             arr[i].node_info = temp[j].node_info;
             arr[i].pathnameLenght = 0;
             arr[i].pathname = NULL;
-            
+
             if (arr[i].node_info.st_nlink > 1)
                 arr[i].extracted = 0;
             else
@@ -340,6 +341,7 @@ int printMetadata(int fd)
 void printArrayNode(node inode)
 {
     printf("inode: %ld\tblock: %d\toffset: %d\n", inode.node_info.st_ino, inode.block, inode.offset);
+    printf("Extracted: %d\tPathnameLenght: %d\tPathname: %s\n",inode.extracted, inode.pathnameLenght, inode.pathname);
     printStat(inode.node_info);
     return;
 }
@@ -436,25 +438,37 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
             struct utimbuf times;
             times.actime = arr[inodeNum].node_info.st_atime;
             times.modtime = arr[inodeNum].node_info.st_mtime;
-
-    printf("Last file access:         %s", ctime(&times.actime));
-    printf("Last file modification:   %s", ctime(&times.modtime));
             
             if(S_ISDIR(arr[inodeNum].node_info.st_mode))
             {
-                printf("up one was dir %s\n", dir.entries[i].name);
                 mkdir(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
                 chdir(dir.entries[i].name);
+
+                char *path = malloc(depth*30*sizeof(char));
+                printf("I'm going here: %s\n", dir.entries[i].name);
+                path = get_current_dir_name();
+                printf("Curreng pwd = %s\n", path);
+                free(path);
+
+
+
+
                 extractDir(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1);
+
                 chdir("..");
+                chown(dir.entries[i].name, arr[inodeNum].node_info.st_uid, arr[inodeNum].node_info.st_gid);
                 if (utime(dir.entries[i].name, &times) != 0)
                     perror("utime() error");
+
             }
             else
             {
                 int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
                 chmod(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
+                chown(dir.entries[i].name, arr[inodeNum].node_info.st_uid, arr[inodeNum].node_info.st_gid);
+
                 ExtractFile(fd, dir.entries[i].name, arr[inodeNum].block, arr[inodeNum].node_info.st_size);
+
                 close(ffd);
                 if (utime(dir.entries[i].name, &times) != 0)
                     perror("utime() error");
