@@ -476,3 +476,64 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
     free(start);
     return 0;
 }
+
+
+
+char * relative_string(char * path1, char * path2, int max_len)
+{
+    char * relative = malloc(max_len*sizeof(char));
+
+    if (relative == NULL) return NULL;
+
+    int i;
+    int max1 = strlen(path1);
+    int max2 = strlen(path2);
+    int last_slash;
+    int diff_start;
+    int diff_depth = 0;
+    int index = 0;
+
+    while(i < max1)
+    {
+        while (path1[i] == path2[i])
+        {
+            if (path1[i] == '/')
+            {
+                last_slash = i;
+            }
+
+            i++;
+        }
+
+    }
+
+    diff_start = last_slash;
+
+    if (diff_start != max1)
+    {
+        for (i=diff_start;i<max2;i++)
+        {
+            if (path2[i] == '/')
+            {
+                relative[index++] = '.'
+                relative[index++] = '.'
+                relative[index++] = '/'
+                diff_depth++;
+            }
+        }
+
+        for (i=diff_start;i<max1;i++)
+            relative[index++] = path1[i]
+
+        relative[index] = '\0';
+
+        return relative_string;
+
+    }
+    else
+    {
+        return NULL;
+    } 
+
+
+}
