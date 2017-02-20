@@ -23,7 +23,7 @@ int main(int argc, char const *argv[])
 	listofdirs * dirlist;
 	dirlist_create(&dirlist);
 	dirlist_add_dir(dirlist, "ekf");
-	dirlist_add_dir(dirlist, "blocks.h");
+//	dirlist_add_dir(dirlist, "tempdir");
 	
 
 	di_createfile("testcreate.di", dirlist);
@@ -33,20 +33,15 @@ int main(int argc, char const *argv[])
 	printf("file has %d blocks\n", blks);
 	dirlist_free(&dirlist);
 
-	Header head;
-	head = di_getHeader(fd);
-
-	int metaDataStartBlock = head.metadata_block;
-	int inodesNum = head.dinodes;
-
 	node *arr = getInodesArray(fd);
-   	for (int i = 0; i < inodesNum; ++i)
+/*   	for (int i = 0; i < inodesNum; ++i)
     {
         printArrayNode(arr[i]);
     }
+*/
+//	printMetadata(fd);
 
-	printMetadata(fd);
-
+    extractDiFile(fd);
     free(arr);
 
 

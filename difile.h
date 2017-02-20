@@ -25,5 +25,8 @@ void printArrayNode(node inode);
 int dirTraverse(int blockNum, int fd, node *arr, int depth);
 node * getInodesArray(int fd);
 
+int extractDir(int blockNum, int fd, node *arr, int depth);
+
+int extractDiFile(int fd);
 
 #endif

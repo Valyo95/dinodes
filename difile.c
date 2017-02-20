@@ -5,11 +5,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <fcntl.h>
+
 
 #include "difile.h"
 #include "dirlist.h"
 #include "metadata.h"
 #include "blocks.h"
+#include "funcs.h"
 
 
 int di_createfile(char * filename, listofdirs * dirlist)
@@ -35,6 +38,7 @@ int di_createfile(char * filename, listofdirs * dirlist)
 
 	dirInfo * dInfo;
 	struct stat st;
+    st.st_ino = -1;
 	int count = 1;
 
     md_add_dinode(md,st,'d',0);
@@ -325,7 +329,7 @@ int printMetadata(int fd)
 void printArrayNode(node inode)
 {
     printf("inode: %ld\tblock: %d\toffset: %d\n", inode.node_info.st_ino, inode.block, inode.offset);
-    //printStat(inode->node_info);
+    printStat(inode.node_info);
     return;
 }
 
@@ -382,5 +386,59 @@ int dirTraverse(int blockNum, int fd, node *arr, int depth)
 
     free(dir.entries);
     free(start);
+    return 0;
+}
+
+int extractDiFile(int fd)
+{
+    node * arr = getInodesArray(fd);
+
+    mkdir("extractDir", S_IRWXU | S_IRWXG | S_IRWXO);
+    chdir("extractDir");
+
+    extractDir(arr[0].block + arr[0].offset, fd, arr, 0);
+    chdir("..");
+    return 0;
+}
+
+int extractDir(int blockNum, int fd, node *arr, int depth)
+{
+    int i;
+    void *start = malloc(BLOCK_SIZE*sizeof(char));
+    void *block = start;
+    dirInfo dir;
+    dir.entries = malloc(MAX_DIR_ENTRIES*sizeof(dirEntry));
+    do
+    {
+        ReadBlock(fd, blockNum, start);
+        memcpy(&(dir.count), block, sizeof(int));
+        block += sizeof(int);
+        memcpy(&(dir.next), block, sizeof(int));
+        block += sizeof(int);
+        memcpy(dir.entries, block, dir.count*sizeof(dirEntry));
+        
+        for (i = 0; i < dir.count; ++i)
+        {
+            if ( !strcmp(dir.entries[i].name, ".") || !strcmp(dir.entries[i].name, "..") )
+                continue;
+            int inodeNum = dir.entries[i].dinode_num-1;
+            if(S_ISDIR(arr[inodeNum].node_info.st_mode))
+            {
+                    mkdir(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
+                    chdir(dir.entries[i].name);
+                    extractDir(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1);
+            }
+            else
+            {
+                int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
+                chmod(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
+                close(ffd);
+            }    
+        }
+    } while (dir.next != -1);
+
+    free(dir.entries);
+    free(start);
+    chdir("..");
     return 0;
 }
