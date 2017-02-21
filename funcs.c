@@ -64,7 +64,5 @@ int printStat(struct stat sb)
    	printf("Last status change:       %s", ctime(&sb.st_ctime));
     printf("Last file access:         %s", ctime(&sb.st_atime));
     printf("Last file modification:   %s", ctime(&sb.st_mtime));
-	int statchmod = sb.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
-	printf("chmod: %o\n", statchmod);
     return 0;
 }

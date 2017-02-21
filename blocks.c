@@ -209,7 +209,7 @@ int ExtractFile(int fd, char * filename, int start_block, off_t file_size)
 	
 	int full_blocks = file_size / BLOCK_SIZE;
 	int remaining_bytes = file_size % BLOCK_SIZE;
-	printf("%d %d\n",full_blocks,remaining_bytes);
+//	printf("%d %d\n",full_blocks,remaining_bytes);
 	int i;
 	int curr_block = start_block;
 	void * block = malloc(BLOCK_SIZE);

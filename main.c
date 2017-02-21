@@ -38,12 +38,14 @@ int main(int argc, char const *argv[])
         printArrayNode(arr[i]);
     }
 */
-//	printMetadata(fd);
 
     /*Extract file test*/
 /*    ExtractFile(fd, "file3", 4, 1486);
     printf("done extractFile\n");
 */
+	printHierarchy(fd);
+	printMetadata(fd);
+
     extractDiFile(fd);
     free(arr);
 

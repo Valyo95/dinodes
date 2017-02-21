@@ -1,3 +1,7 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -67,7 +71,7 @@ int di_createfile(char * filename, listofdirs * dirlist)
             md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
             count += di_add_dir(fd, file_name, 1, md);
         }
-        else
+        else if(S_ISREG(st.st_mode))
         {
             dinode_num = md_find_dinode(md, st.st_ino);
 
@@ -83,6 +87,13 @@ int di_createfile(char * filename, listofdirs * dirlist)
                 printf("New hard link '%s' pointing to dinode %d\n", file_name, dinode_num);
                 md_add_dirEntry(md,&dInfo,file_name, dinode_num);
             }
+        }
+        else if(S_ISLNK(st.st_mode))
+        {
+            char *linkName = getSymLinkPath(file_name);
+            printf("Symbolic link :%s shows to name: %s\n", file_name, linkName);
+            free(linkName);
+
         }
 
         current = current->next;
@@ -148,8 +159,6 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
         file_name = dp->d_name;
 
         lstat(file_name, &st);
-        
-
 
         if(S_ISDIR(st.st_mode))
         {
@@ -157,7 +166,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
             md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);    
             count += di_add_dir(fd, file_name, dinode_num, md);
         }
-        else
+        else if(S_ISREG(st.st_mode))
         {
             dinode_num = md_find_dinode(md, st.st_ino);
 
@@ -173,6 +182,12 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
                 printf("New hard link '%s' pointing to dinode %d\n", file_name, dinode_num);
                 md_add_dirEntry(md,&dInfo,file_name, dinode_num);
             }
+        }
+        else if(S_ISLNK(st.st_mode))
+        {
+            char *linkName = getSymLinkPath(file_name);
+            printf("Symbolic link :%s shows to name: %s\n", file_name, linkName);
+            free(linkName);
         }
     }
     closedir(dir);
@@ -318,7 +333,6 @@ node * getInodesArray(int fd)
     node *arr = malloc(allInodes*sizeof(struct node));
     struct dinode *temp = malloc(MAX_I_NODES*sizeof(struct dinode));
 
-
     do
     {
         ReadBlock(fd, currBlock, block);
@@ -353,7 +367,6 @@ node * getInodesArray(int fd)
 int freeNodeArray(node **arr, int fd)
 {
     Header head = di_getHeader(fd);
-    printf("head.dinodes : %d\n", head.dinodes);
     for (int i = 0; i < head.dinodes; ++i)
     {
         if ((*arr)[i].pathname != NULL)
@@ -365,13 +378,24 @@ int freeNodeArray(node **arr, int fd)
     return 0;
 }
 
+
+int printHierarchy(int fd)
+{
+//    printf("-------Starting printMetadata()-------\n");    
+    node * arr = getInodesArray(fd);
+    dirTraverse(arr[0].block + arr[0].offset, fd, arr, 0);
+    freeNodeArray(&arr, fd);
+    return 0;
+}
+
+
 int printMetadata(int fd)
 {
     printf("-------Starting printMetadata()-------\n");
 	
     node * arr = getInodesArray(fd);
 
-	dirTraverse(arr[0].block + arr[0].offset, fd, arr, 0);
+	dirTraverseMetaData(arr[0].block + arr[0].offset, fd, arr, 0);
 
     freeNodeArray(&arr, fd);
 
@@ -390,8 +414,6 @@ void printArrayNode(node inode)
 
 int dirTraverse(int blockNum, int fd, node *arr, int depth)
 {
-    //printf("blockNum = %d, fd = %d, depth = %d\n", blockNum, fd, depth);
-
     int i;
     void *start = malloc(BLOCK_SIZE*sizeof(char));
     void *block = start;
@@ -409,34 +431,59 @@ int dirTraverse(int blockNum, int fd, node *arr, int depth)
         for (i = 0; i < dir.count; ++i)
         {
             if ( !strcmp(dir.entries[i].name, ".") || !strcmp(dir.entries[i].name, "..") )
-            {
                 continue;
-            }
             for (int i = 0; i < depth; ++i)
             {
                 printf("|");
                 if(i == depth-1)
-                    printf("----");
+                    printf("--");
                 else
                     printf("\t");
             }
-            int inodeNum = dir.entries[i].dinode_num-1;
-            printf("%s \n", dir.entries[i].name);
-        //            printf("inodenum = %d\n\n\n", inodeNum);
-        //            printStat(arr[inodeNum]->node_info);
-            if(S_ISDIR(arr[inodeNum].node_info.st_mode))
-            {
-                //printf("%s is a DIR\n", dir.entries[i].name);
-                //printf("block = %d, offset = %d, inode = %d\n",arr[inodeNum]->block, arr[inodeNum]->offset, arr[inodeNum]->node_info.st_ino );            
-                //printf("\n");
-                dirTraverse(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1);
-            }
-            else
-            {
+            printf("%s\n", dir.entries[i].name);
 
-            }    
+            int inodeNum = dir.entries[i].dinode_num-1;
+            if(S_ISDIR(arr[inodeNum].node_info.st_mode))
+                dirTraverse(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1);
         }
     } while (dir.next != -1);
+
+    free(dir.entries);
+    free(start);
+    return 0;
+}
+
+int dirTraverseMetaData(int blockNum, int fd, node *arr, int depth)
+{
+    int i;
+    void *start = malloc(BLOCK_SIZE*sizeof(char));
+    void *block = start;
+    dirInfo dir;
+    dir.entries = malloc(MAX_DIR_ENTRIES*sizeof(dirEntry));
+    do
+    {
+        ReadBlock(fd, blockNum, start);
+        memcpy(&(dir.count), block, sizeof(int));
+        block += sizeof(int);
+        memcpy(&(dir.next), block, sizeof(int));
+        block += sizeof(int);
+        memcpy(dir.entries, block, dir.count*sizeof(dirEntry));
+        
+        for (i = 0; i < dir.count; ++i)
+        {
+            if ( !strcmp(dir.entries[i].name, ".") || !strcmp(dir.entries[i].name, "..") )
+                continue;
+
+            int inodeNum = dir.entries[i].dinode_num-1;
+
+            printf("Name: %s\n", dir.entries[i].name);
+            printStat(arr[inodeNum].node_info);
+            printf("\n");
+            if(S_ISDIR(arr[inodeNum].node_info.st_mode))
+                dirTraverseMetaData(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1);    
+        }
+
+    }while (dir.next != -1);
 
     free(dir.entries);
     free(start);
@@ -487,25 +534,20 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
                 mkdir(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
                 chdir(dir.entries[i].name);
 
-                
-
-
-
                 extractDir(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1);
 
                 chdir("..");
                 chown(dir.entries[i].name, arr[inodeNum].node_info.st_uid, arr[inodeNum].node_info.st_gid);
                 if (utime(dir.entries[i].name, &times) != 0)
-                    perror("utime() error");
-
+                    perror("ERROR:");
             }
-            else
+            else if(S_ISREG(arr[inodeNum].node_info.st_mode))
             {
-                int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
 
                 if (arr[inodeNum].extracted == 0)
                 {
-                    arr[inodeNum].extracted == 1;
+                    int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
+                    arr[inodeNum].extracted = 1;
                     ExtractFile(fd, dir.entries[i].name, arr[inodeNum].block, arr[inodeNum].node_info.st_size);
                     
                     close(ffd);
@@ -517,7 +559,6 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
                        
                     char *path;
                     path=get_current_dir_name();
-                    printf("Curreng pwd = %s\n", path);
                     char *name = malloc(strlen(path)+1+strlen(dir.entries[i].name)+1);
                     name[0] = '\0';
                     strcat(name,path);
@@ -525,16 +566,26 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
                     strcat(name,dir.entries[i].name);
                     
                     arr[inodeNum].pathname = name;
-                    printArrayNode(arr[inodeNum]);
+//                    printArrayNode(arr[inodeNum]);
 
 
                     free(path);
-
-
-
-                    
-
                 }
+                else    //File has been extracted. So I'm dealing with hard link.
+                {
+                    char *relLink;
+                    char *path;
+                    path=get_current_dir_name();
+                    relLink = relative_string(arr[inodeNum].pathname, path, 30*depth);
+                    if(link(relLink, dir.entries[i].name) == -1)
+                        perror("ERROR:");
+                    free(path);
+                    free(relLink);
+                }
+            }
+            else if(S_ISLNK(arr[inodeNum].node_info.st_mode))
+            {
+
             }    
         }
     } while (dir.next != -1);
@@ -544,7 +595,38 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
     return 0;
 }
 
+char * getSymLinkPath(char *argv)
+{
+    struct stat sb;
+    char  *linkname;
+    int r;
+    if (lstat(argv, &sb) == -1) {
+       perror("lstat");
+       exit(EXIT_FAILURE);
+       }
+    linkname = malloc(sb.st_size + 1);
+    if (linkname == NULL) 
+    {
+       fprintf(stderr, "insufficient memory\n");
+       exit(EXIT_FAILURE);
+    }
 
+    r = readlink(argv, linkname, sb.st_size + 1);
+
+    if (r == -1) {
+       perror("readlink");
+       exit(EXIT_FAILURE);
+    }
+
+    if (r > sb.st_size) {
+       fprintf(stderr, "symlink increased in size "
+                       "between lstat() and readlink()\n");
+       exit(EXIT_FAILURE);
+    }
+
+    linkname[r] = '\0';
+    return (linkname);
+}
 
 char * relative_string(char * path1, char * path2, int max_len)
 {
