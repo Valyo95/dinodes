@@ -42,6 +42,7 @@ int di_createfile(char * filename, listofdirs * dirlist)
 	struct stat st;
     st.st_ino = -1;
 	int count = 1;
+    int dinode_num;
 
     md_add_dinode(md,st,'d',0);
 
@@ -58,19 +59,30 @@ int di_createfile(char * filename, listofdirs * dirlist)
         int file_block;
 
         file_name = current->dir;
-        stat(file_name, &st);
+        lstat(file_name, &st);
 
-        md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
 
         if(S_ISDIR(st.st_mode))
         {
+            md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
             count += di_add_dir(fd, file_name, 1, md);
         }
         else
         {
-    printf("hello\n");
-            file_block = WriteFile(fd, -1, file_name);
-            md_add_dinode(md, st,'f', file_block);
+            dinode_num = md_find_dinode(md, st.st_ino);
+
+            if (dinode_num == -1)
+            {
+                md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
+                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
+                file_block = WriteFile(fd, -1, file_name);
+                md_add_dinode(md, st,'f', file_block);
+            }
+            else
+            {
+                printf("New hard link '%s' pointing to dinode %d\n", file_name, dinode_num);
+                md_add_dirEntry(md,&dInfo,file_name, dinode_num);
+            }
         }
 
         current = current->next;
@@ -110,7 +122,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
     struct stat st;
     int dinode_num;
 
-    stat(dirname, &st);
+    lstat(dirname, &st);
     md_add_dinode(md,st,'d',0);
 
     chdir(dirname);
@@ -135,21 +147,32 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
         count++;
         file_name = dp->d_name;
 
-        stat(file_name, &st);
+        lstat(file_name, &st);
         
-        md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);    
 
 
         if(S_ISDIR(st.st_mode))
         {
             /*this dirInfo will be created at next available block*/
+            md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);    
             count += di_add_dir(fd, file_name, dinode_num, md);
         }
         else
         {
-            /*SAVE FILE AND GET THE BLOCK WHERE IT WAS SAVED TO PASS IN DINODE*/
-            file_block = WriteFile(fd, -1, file_name);
-            md_add_dinode(md, st,'f', file_block);
+            dinode_num = md_find_dinode(md, st.st_ino);
+
+            if (dinode_num == -1)
+            {
+                md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
+                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
+                file_block = WriteFile(fd, -1, file_name);
+                md_add_dinode(md, st,'f', file_block);
+            }
+            else
+            {
+                printf("New hard link '%s' pointing to dinode %d\n", file_name, dinode_num);
+                md_add_dirEntry(md,&dInfo,file_name, dinode_num);
+            }
         }
     }
     closedir(dir);

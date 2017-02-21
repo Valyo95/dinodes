@@ -154,6 +154,39 @@ int md_add_dirEntry(metadata *md, dirInfo ** dInfo, char name[30], int dinode_nu
 
 
 
+int md_find_dinode(metadata *md, ino_t inode_num)
+{
+	int i,next,count;
+	int dinode_num = 1;
+	block * current_block = md->firstBlock;
+	dinodelist * current;
+	dinode * dinodes;
+
+	do
+	{
+		current = current_block->content;
+		next = current->next;
+		count = current->count;
+		dinodes = current->dinodes;
+
+		for (i=0;i<count;i++)
+		{
+			if (dinodes[i].node_info.st_ino == inode_num)
+				return dinode_num;
+			else
+				dinode_num++;
+		}
+
+		for (i=0;i<next;i++)
+			current_block = current_block->next;
+	}
+	while (next != -1);
+
+	return -1;
+}
+
+
+
 int md_free(metadata ** md)
 {
 	block * current = (*md)->firstBlock;
