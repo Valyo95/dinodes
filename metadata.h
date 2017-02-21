@@ -88,7 +88,6 @@ typedef struct node
 	int offset;
 
 	char extracted;
-	int pathnameLenght;
 	char *pathname;
 }node ;
 

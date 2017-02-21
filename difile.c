@@ -188,7 +188,7 @@ int di_find_dirlist(int fd, listofdirs * dirlist)
         current = current->next;
 	}
 
-    free(dinodes_array);
+    freeNodeArray(&dinodes_array, fd);
 
 	if (found)
 	{
@@ -311,15 +311,10 @@ node * getInodesArray(int fd)
             arr[i].block = currBlock;
             arr[i].offset = temp[j].pointer;
             arr[i].node_info = temp[j].node_info;
-            arr[i].pathnameLenght = 0;
+           
             arr[i].pathname = NULL;
-
-            if (arr[i].node_info.st_nlink > 1)
-                arr[i].extracted = 0;
-            else
-                arr[i].extracted = 1;
+            arr[i].extracted = 0;
                 
-            
             i++;
         }
         currBlock+= nextInodeBlock;
@@ -332,6 +327,21 @@ node * getInodesArray(int fd)
     return arr;
 }
 
+int freeNodeArray(node **arr, int fd)
+{
+    Header head = di_getHeader(fd);
+    printf("head.dinodes : %d\n", head.dinodes);
+    for (int i = 0; i < head.dinodes; ++i)
+    {
+        if ((*arr)[i].pathname != NULL)
+            free((*arr)[i].pathname);
+    }    
+        
+    free(*arr);
+    arr = NULL;
+    return 0;
+}
+
 int printMetadata(int fd)
 {
     printf("-------Starting printMetadata()-------\n");
@@ -340,7 +350,7 @@ int printMetadata(int fd)
 
 	dirTraverse(arr[0].block + arr[0].offset, fd, arr, 0);
 
-    free(arr);
+    freeNodeArray(&arr, fd);
 
     return 0;
 }
@@ -349,7 +359,7 @@ int printMetadata(int fd)
 void printArrayNode(node inode)
 {
     printf("inode: %ld\tblock: %d\toffset: %d\n", inode.node_info.st_ino, inode.block, inode.offset);
-    printf("Extracted: %d\tPathnameLenght: %d\tPathname: %s\n",inode.extracted, inode.pathnameLenght, inode.pathname);
+    printf("Extracted: %d\tPathname: %s\n",inode.extracted, inode.pathname);
     printStat(inode.node_info);
     return;
 }
@@ -420,7 +430,7 @@ int extractDiFile(int fd)
     extractDir(arr[0].block + arr[0].offset, fd, arr, 0);
     chdir("..");
 
-    free(arr);
+    freeNodeArray(&arr, fd);
     return 0;
 }
 
@@ -454,12 +464,7 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
                 mkdir(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
                 chdir(dir.entries[i].name);
 
-                char *path = malloc(depth*30*sizeof(char));
-                printf("I'm going here: %s\n", dir.entries[i].name);
-                path = get_current_dir_name();
-                printf("Curreng pwd = %s\n", path);
-                free(path);
-
+                
 
 
 
@@ -474,14 +479,39 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
             else
             {
                 int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
-                chmod(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
-                chown(dir.entries[i].name, arr[inodeNum].node_info.st_uid, arr[inodeNum].node_info.st_gid);
 
-                ExtractFile(fd, dir.entries[i].name, arr[inodeNum].block, arr[inodeNum].node_info.st_size);
+                if (arr[inodeNum].extracted == 0)
+                {
+                    arr[inodeNum].extracted == 1;
+                    ExtractFile(fd, dir.entries[i].name, arr[inodeNum].block, arr[inodeNum].node_info.st_size);
+                    
+                    close(ffd);
+                    
+                    chmod(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
+                    chown(dir.entries[i].name, arr[inodeNum].node_info.st_uid, arr[inodeNum].node_info.st_gid);
+                    if (utime(dir.entries[i].name, &times) != 0)
+                        perror("utime() error");
+                       
+                    char *path;
+                    path=get_current_dir_name();
+                    printf("Curreng pwd = %s\n", path);
+                    char *name = malloc(strlen(path)+1+strlen(dir.entries[i].name)+1);
+                    name[0] = '\0';
+                    strcat(name,path);
+                    strcat(name,"/");
+                    strcat(name,dir.entries[i].name);
+                    
+                    arr[inodeNum].pathname = name;
+                    printArrayNode(arr[inodeNum]);
 
-                close(ffd);
-                if (utime(dir.entries[i].name, &times) != 0)
-                    perror("utime() error");
+
+                    free(path);
+
+
+
+                    
+
+                }
             }    
         }
     } while (dir.next != -1);

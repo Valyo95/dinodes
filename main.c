@@ -68,7 +68,7 @@ int main(int argc, char const *argv[])
     CloseFile(fd);
     remove("testcreate.di");
 
-
+/*
     //RELATIVE PATH TEST
     char *path1 = malloc(100*sizeof(char));
     char *path2 = malloc(100*sizeof(char));
@@ -85,10 +85,11 @@ int main(int argc, char const *argv[])
         relative = relative_string(path1,path2,100);
         printf("\nRelative is %s\n\n",relative);
     }
+
     free(path1);
     free(path2);
     free(relative);
-
+*/
 
 
 	return 0;

@@ -24,6 +24,8 @@ int printMetadata(int fd);
 void printArrayNode(node inode);
 int dirTraverse(int blockNum, int fd, node *arr, int depth);
 node * getInodesArray(int fd);
+int freeNodeArray(node **arr, int fd);
+
 
 int extractDir(int blockNum, int fd, node *arr, int depth);
 
