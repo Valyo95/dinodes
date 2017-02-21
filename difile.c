@@ -499,53 +499,51 @@ char * relative_string(char * path1, char * path2, int max_len)
 
     if (relative == NULL) return NULL;
 
-    int i;
     int max1 = strlen(path1);
     int max2 = strlen(path2);
-    int last_slash;
+    int last_slash = 0;
     int diff_start;
-    int diff_depth = 0;
+    int i = 0;
     int index = 0;
 
-    while(i < max1)
+    while (path1[i] == path2[i] && i < max1 && i < max2)
     {
-        while (path1[i] == path2[i])
+        if (path1[i] == '/')
         {
-            if (path1[i] == '/')
-            {
-                last_slash = i;
-            }
-
-            i++;
+            last_slash = i;
         }
 
+        i++;
     }
 
-    diff_start = last_slash;
-
-    if (diff_start != max1)
+    if (i == max1 || i == max2)
+        diff_start = i;
+    else
+        diff_start = last_slash;
+    
+    if (i != 0)
     {
         for (i=diff_start;i<max2;i++)
         {
             if (path2[i] == '/')
             {
-                relative[index++] = '.'
-                relative[index++] = '.'
-                relative[index++] = '/'
-                diff_depth++;
+                relative[index++] = '.';
+                relative[index++] = '.';
+                relative[index++] = '/';
             }
         }
 
-        for (i=diff_start;i<max1;i++)
-            relative[index++] = path1[i]
+        for (i=diff_start+1;i<max1;i++)
+            relative[index++] = path1[i];
 
         relative[index] = '\0';
 
-        return relative_string;
+        return relative;
 
     }
     else
     {
+        printf("Error.No relative path exists!\n");
         return NULL;
     } 
 
