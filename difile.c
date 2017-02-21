@@ -90,8 +90,11 @@ int di_createfile(char * filename, listofdirs * dirlist)
         }
         else if(S_ISLNK(st.st_mode))
         {
+            md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
             char *linkName = getSymLinkPath(file_name);
             printf("Symbolic link :%s shows to name: %s\n", file_name, linkName);
+            file_block = WriteSoftLink(fd, -1, linkName);
+            md_add_dinode(md, st,'f', file_block);
             free(linkName);
 
         }
@@ -185,8 +188,14 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
         }
         else if(S_ISLNK(st.st_mode))
         {
+            md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
             char *linkName = getSymLinkPath(file_name);
             printf("Symbolic link :%s shows to name: %s\n", file_name, linkName);
+
+            file_block = WriteSoftLink(fd, -1, linkName);
+            printf("Symlink saved at %d\n",file_block);
+            md_add_dinode(md, st,'f', file_block);
+            
             free(linkName);
         }
     }
@@ -548,7 +557,7 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
                 {
                     int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
                     arr[inodeNum].extracted = 1;
-                    ExtractFile(fd, dir.entries[i].name, arr[inodeNum].block, arr[inodeNum].node_info.st_size);
+                    ExtractFile(fd, dir.entries[i].name, arr[inodeNum].offset, arr[inodeNum].node_info.st_size);
                     
                     close(ffd);
                     
@@ -585,7 +594,10 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
             }
             else if(S_ISLNK(arr[inodeNum].node_info.st_mode))
             {
-
+                printf("BIKA offset %d\n",arr[inodeNum].offset);
+                char * softPath = ReadSoftLink(fd, arr[inodeNum].offset);
+                symlink(softPath, dir.entries[i].name);
+                free(softPath);
             }    
         }
     } while (dir.next != -1);

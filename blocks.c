@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -238,4 +239,121 @@ int ExtractFile(int fd, char * filename, int start_block, off_t file_size)
 	CloseFile(extract_fd);
 
 	return 0;
+}
+
+
+
+int WriteSoftLink(int fd, int block_num, const char * path)
+{
+	int dest_blocks, move_blocks;
+	int i,j,path_len;
+	void * block, * end_blocks, * start;
+	void * block_start;
+
+	dest_blocks = BlockCounter(fd);
+
+	block = malloc(BLOCK_SIZE);
+	block_start = block;
+
+	/*If we want to write the source file,at a specific block*/
+	/*Make sure to "push" blocks so as to not lose information of dest*/
+	if (block_num > -1 && block_num < dest_blocks)
+	{
+		move_blocks = dest_blocks - block_num;
+
+		end_blocks = malloc(move_blocks*BLOCK_SIZE);
+		start = end_blocks;
+		
+		/*Save dest's blocks that will have to be moved forward*/
+		for (i=block_num;i<dest_blocks;i++)
+		{
+			ReadBlock(fd, i, end_blocks);
+			end_blocks += BLOCK_SIZE;
+		}
+
+		end_blocks = start;/*reset pointer*/
+
+		/*Write link path at block_num block*/
+		path_len = strlen(path);
+		memcpy(block, &path_len, sizeof(int));
+		block += sizeof(int);
+		memcpy(block, path, path_len*sizeof(char));
+		block = block_start;
+
+		WriteBlock(fd, block_num, block);
+		block_num++;
+
+		/*Finally move previously saved blocks of dest after the (now saved) source file*/
+		for (i=0;i<move_blocks;i++)
+		{
+			if (block_num == dest_blocks)
+			{/*If dest file doesnt have more blocks to write*/
+			/*Write the rest of "moved" blocks at the end of dest (append)*/
+				for (j=i;j<move_blocks;j++)	
+				{
+					WriteBlock(fd, -1, end_blocks);
+					end_blocks += BLOCK_SIZE;
+				}
+				break;
+			}
+			else
+			{
+				WriteBlock(fd, block_num, end_blocks);
+				end_blocks += BLOCK_SIZE;
+				block_num++;
+			}
+		}
+
+		end_blocks = start;/*reset pointer*/
+
+		free(end_blocks);
+	}
+	else if (block_num == -1)
+	{/*simply write at the end of dest file,block by block*/
+		block_num = BlockCounter(fd);
+
+		path_len = strlen(path);
+		memcpy(block, &path_len, sizeof(int));
+		block += sizeof(int);
+		memcpy(block, path, path_len*sizeof(char));
+		block = block_start;
+
+		WriteBlock(fd, -1, block);
+
+	}
+	else
+	{
+		printf("WriteFile: Invalid block num!\n");
+		free(block);
+		return -1;
+	}
+
+	free(block);
+
+	return block_num;
+
+}
+
+
+
+char * ReadSoftLink(int fd, int block_num)
+{
+	void * block = malloc(BLOCK_SIZE);
+	void * start_block = block;
+	
+	int path_len;
+	char * path;
+
+	ReadBlock(fd, block_num, block);
+
+	memcpy(&path_len, block, sizeof(int));
+	block += sizeof(int);
+
+	path = malloc( (path_len + 1)*sizeof(char) );
+	memcpy(path, block, path_len*sizeof(char));
+	path[path_len] = '\0';
+
+	free(start_block);
+
+	return path;
 }
