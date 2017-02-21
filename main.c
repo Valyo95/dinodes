@@ -68,5 +68,28 @@ int main(int argc, char const *argv[])
     CloseFile(fd);
     remove("testcreate.di");
 
+
+    //RELATIVE PATH TEST
+    char *path1 = malloc(100*sizeof(char));
+    char *path2 = malloc(100*sizeof(char));
+    char *relative;
+    printf("Starting relative path tests.Give path1 A and path2 B to end test\n");
+    strcpy(path1,"test");
+    strcpy(path2,"test");
+    while ( strcmp(path1,"A") != 0 || strcmp(path2,"B") != 0)
+    {
+        printf("Path1: ");
+        scanf("%s", path1);
+        printf("Path2: ");
+        scanf("%s", path2);
+        relative = relative_string(path1,path2,100);
+        printf("\nRelative is %s\n\n",relative);
+    }
+    free(path1);
+    free(path2);
+    free(relative);
+
+
+
 	return 0;
 }

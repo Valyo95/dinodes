@@ -29,4 +29,6 @@ int extractDir(int blockNum, int fd, node *arr, int depth);
 
 int extractDiFile(int fd);
 
+char * relative_string(char * path1, char * path2, int max_len);
+
 #endif
