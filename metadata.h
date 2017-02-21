@@ -98,6 +98,7 @@ int md_add_block(metadata * md, int block_type);
 int md_add_dinode(metadata * md, struct stat node_info, char type, int pointer);/*'f' file,'d' dir*/
 int md_create_dirInfo(metadata *md, dirInfo ** dInfo);
 int md_add_dirEntry(metadata *md, dirInfo ** dInfo, char name[30], int dinode_num);
+int md_find_dinode(metadata *md, ino_t inode_num);
 
 int md_free(metadata ** md);
 void md_printall(metadata *md);
