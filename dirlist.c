@@ -65,3 +65,39 @@ int dirlist_free(listofdirs ** dirlist)
 
 	return 0;
 }
+
+
+
+listofdirs * path_to_list(char * path)
+{
+	listofdirs * path_list = malloc(sizeof(listofdirs));
+
+	char name[30];
+	int index = 0;
+	int i;
+
+	for (i=0;i<strlen(path);i++)
+	{
+		if (path[i] != '/')
+		{
+			name[index++] = path[i];
+		}
+		else
+		{
+			name[index] = '\0';
+			dirlist_add_dir(path_list, name);
+			index = 0;
+		}
+	}
+
+	dirNode * current = path_list->first;
+
+	while (current != NULL)
+	{
+		printf("%s\n",current->dir);
+
+		current = current->next;
+	}
+
+	return path_list;
+}

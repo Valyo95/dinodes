@@ -242,7 +242,7 @@ void md_printall(metadata *md)
 			for (i=0;i<dList->count;i++)
 			{
 				dinode++;
-				printf("%d: stat:..., compression_size: %d, pointer: %d, inodenum: %ld\n",dinode, dList->dinodes[i].compression_size, dList->dinodes[i].pointer, dList->dinodes[i].node_info.st_ino);
+				printf("%d: stat:..., compression_size: %ld, pointer: %d, inodenum: %ld\n",dinode, dList->dinodes[i].compression_size, dList->dinodes[i].pointer, dList->dinodes[i].node_info.st_ino);
 			}
 		}
 		else
