@@ -490,12 +490,12 @@ int dirTraverseMetaData(int blockNum, int fd, node *arr, int depth)
     return 0;
 }
 
-int extractDiFile(int fd)
+int extractDiFile(int fd, char *fileName)
 {
     node * arr = getInodesArray(fd);
 
-    mkdir("extractDir", S_IRWXU | S_IRWXG | S_IRWXO);
-    chdir("extractDir");
+    mkdir(fileName, S_IRWXU | S_IRWXG | S_IRWXO);
+    chdir(fileName);
 
     extractDir(arr[0].block + arr[0].offset, fd, arr, 0);
     chdir("..");
@@ -511,6 +511,7 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
     void *block = start;
     dirInfo dir;
     dir.entries = malloc(MAX_DIR_ENTRIES*sizeof(dirEntry));
+
     do
     {
         ReadBlock(fd, blockNum, start);

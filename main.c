@@ -10,89 +10,88 @@
 
 int main(int argc, char const *argv[])
 {
-	// printf("---TESTING BLOCKS---\n");
-	// test_blocks("testfile","writetest");
 	
-	// printf("---TESTING METADATA---\n");
-	// test_metadata();
+	int fd;
+	int i = 1;
+	int compression = 0;
+	while(i < argc)
+	{
+		if(strcmp(argv[i], "-c") == 0)
+		{
+			int j = 1;
+			while(j< argc)
+			{
+				if (strcmp(argv[i], "-j") == 0)
+					compression = 1;
+				j++;
+			}
+			listofdirs * dirlist;
+			dirlist_create(&dirlist);
+			for (int j = i+1; j < argc; ++j)
+			{
+				dirlist_add_dir(dirlist, argv[j]);
+			}
+			char *name = malloc((strlen(argv[i+1]) + 4)*sizeof(char));
+			name[0] = '\0';
+			strcat(name, argv[i+1]);
+			strcat(name, ".di");
 
-	//printf("---TESTING CHECKDIR---\n");
-	//test_checkdir(char *dir);
+			di_createfile(name, dirlist, compression);
 
-	printf("Testing di_createfile!\n");
-	listofdirs * dirlist;
-	dirlist_create(&dirlist);
-	dirlist_add_dir(dirlist, "ekf");
-//	dirlist_add_dir(dirlist, "tempdir");
+			free(name);
+		    dirlist_free(&dirlist);
+		    return 0;
 
-	di_createfile("testcreate.di", dirlist, 1);
+		}
+		else if (strcmp(argv[i], "-a") == 0)
+		{
+			
+		}
+		else if (strcmp(argv[i], "-x") == 0)
+		{
+			fd = OpenFile(argv[i+1]);
+		    extractDiFile(fd, argv[i+1]);
+		    CloseFile(fd);			
+		    return 0;			
+		}
+		else if (strcmp(argv[i], "-d") == 0)
+		{
+		}
+		else if (strcmp(argv[i], "-m") == 0)
+		{
+			fd = OpenFile(argv[i+1]);
+			printMetadata(fd);		
+		    CloseFile(fd);
 
-	int fd = OpenFile("testcreate.di");
-	int blks = BlockCounter(fd);
-	printf("file has %d blocks\n", blks);
-	dirlist_free(&dirlist);
+		    return 0;
+		}
+		else if (strcmp(argv[i], "-q") == 0)
+		{
+			fd = OpenFile(argv[i+1]);
+			
+			listofdirs * dirlist;
+			dirlist_create(&dirlist);
+			for (int j = i+1; j < argc; ++j)
+			{
+				dirlist_add_dir(dirlist, argv[j]);
+			}
 
-	node *arr = getInodesArray(fd);
-/*   	for (int i = 0; i < inodesNum; ++i)
-    {
-        printArrayNode(arr[i]);
-    }
-*/
+		    di_find_dirlist(fd, dirlist);
 
-    /*Extract file test*/
-/*    ExtractFile(fd, "file3", 4, 1486);
-    printf("done extractFile\n");
-*/
-	printHierarchy(fd);
-	printMetadata(fd);
+    		dirlist_free(&dirlist);
+			CloseFile(fd);
+			return 0;			
+		}
+		else if (strcmp(argv[i], "-p") == 0)
+		{
+			fd = OpenFile(argv[i+1]);
+			printHierarchy(fd);					
+		    CloseFile(fd);
 
-    extractDiFile(fd);
-    free(arr);
-
-
-    /*find listofdirst test*/
-    dirlist_create(&dirlist);
-    dirlist_add_dir(dirlist, "ekf");
-    dirlist_add_dir(dirlist, "dirA");
-    dirlist_add_dir(dirlist, "dirB");
-    dirlist_add_dir(dirlist, "file1");
-    dirlist_add_dir(dirlist, "file2");
-    dirlist_add_dir(dirlist, "file3");
-    dirlist_add_dir(dirlist, "file5");
-    dirlist_add_dir(dirlist, "file6");
-    //something not inside
-    dirlist_add_dir(dirlist, "blablabla");
-
-    di_find_dirlist(fd, dirlist);
-    dirlist_free(&dirlist);
-
-
-    CloseFile(fd);
-    remove("testcreate.di");
-
-/*
-    //RELATIVE PATH TEST
-    char *path1 = malloc(100*sizeof(char));
-    char *path2 = malloc(100*sizeof(char));
-    char *relative;
-    printf("Starting relative path tests.Give path1 A and path2 B to end test\n");
-    strcpy(path1,"test");
-    strcpy(path2,"test");
-    while ( strcmp(path1,"A") != 0 || strcmp(path2,"B") != 0)
-    {
-        printf("Path1: ");
-        scanf("%s", path1);
-        printf("Path2: ");
-        scanf("%s", path2);
-        relative = relative_string(path1,path2,100);
-        printf("\nRelative is %s\n\n",relative);
-    }
-
-    free(path1);
-    free(path2);
-    free(relative);
-*/
-
+		    return 0;
+		}
+		i++;
+	}
 
 	return 0;
 }

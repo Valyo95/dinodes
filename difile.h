@@ -28,9 +28,9 @@ int freeNodeArray(node **arr, int fd);
 int printHierarchy(int fd);
 int dirTraverseMetaData(int blockNum, int fd, node *arr, int depth);
 
+int extractDiFile(int fd, char *fileName);
 int extractDir(int blockNum, int fd, node *arr, int depth);
 
-int extractDiFile(int fd);
 char * getSymLinkPath(char *argv);
 char * relative_string(char * path1, char * path2, int max_len);
 
