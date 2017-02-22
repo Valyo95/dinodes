@@ -20,6 +20,8 @@ int di_find_dir(int fd, dirNode *dirname,int blockNum, node *arr, char *path);
 
 Header di_getHeader(int fd);
 
+int printStat(struct stat sb);
+
 int printMetadata(int fd);
 void printArrayNode(node inode);
 int dirTraverse(int blockNum, int fd, node *arr, int depth);

@@ -2,19 +2,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "tests.h"
 #include "difile.h"
 #include "dirlist.h"
 #include "blocks.h"
 #include "metadata.h"
 
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
 	
 	int fd;
 	int i = 1;
 	int compression = 0;
-
+	
 	while(i < argc)
 	{
 		if(strcmp(argv[i], "-c") == 0)
