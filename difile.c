@@ -490,20 +490,156 @@ int dirTraverseMetaData(int blockNum, int fd, node *arr, int depth)
     return 0;
 }
 
-int extractDiFile(int fd)
+
+
+
+
+
+int extractDiFile(int fd, char *fileName,listofdirs *list)
 {
-    node * arr = getInodesArray(fd);
+    node *arr; 
+    arr = getInodesArray(fd);
+    char *name = malloc((strlen(fileName)+1)*sizeof(char));
+    strcpy(name,fileName);
+    name[strlen(name)-3] = '\0';
 
-    mkdir("extractDir", S_IRWXU | S_IRWXG | S_IRWXO);
-    chdir("extractDir");
+    mkdir(name, S_IRWXU | S_IRWXG | S_IRWXO);
+    chdir(name);
 
-    extractDir(arr[0].block + arr[0].offset, fd, arr, 0);
-    chdir("..");
+    if(list == NULL)
+    {    
+        
+        extractDir(arr[0].block + arr[0].offset, fd, arr, 0);
+        chdir("..");
 
+    }
+    else
+    {
+        if(SearchNode(arr[0].block + arr[0].offset, fd, arr, 0, list->first) == 1 )
+        {
+            remove(name);
+        }
+    }
+
+    free(name);
     freeNodeArray(&arr, fd);
     return 0;
 }
 
+
+
+int SearchNode(int blockNum, int fd, node *arr, int depth, dirNode *list)
+{
+    int i;
+    int found = 0;
+    void *start = malloc(BLOCK_SIZE*sizeof(char));
+    void *block = start;
+    dirInfo dir;
+    dir.entries = malloc(MAX_DIR_ENTRIES*sizeof(dirEntry));
+    do
+    {
+        ReadBlock(fd, blockNum, start);
+        memcpy(&(dir.count), block, sizeof(int));
+        block += sizeof(int);
+        memcpy(&(dir.next), block, sizeof(int));
+        block += sizeof(int);
+        memcpy(dir.entries, block, dir.count*sizeof(dirEntry));
+        
+        for (i = 0; i < dir.count; ++i)
+        {
+            if ( !strcmp(dir.entries[i].name, ".") || !strcmp(dir.entries[i].name, "..") )
+                continue;
+            int inodeNum = dir.entries[i].dinode_num-1;
+            struct utimbuf times;
+            times.actime = arr[inodeNum].node_info.st_atime;
+            times.modtime = arr[inodeNum].node_info.st_mtime;
+            
+            if(S_ISDIR(arr[inodeNum].node_info.st_mode))
+            {
+                if(strcmp(list->dir, dir.entries[i].name)== 0)
+                {
+                    found = 1;
+                    if(list->next != NULL)
+                    {
+
+                        free(dir.entries);
+                        free(start);
+                        return SearchNode(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1, list->next);
+                    }
+                    else
+                    {
+                        mkdir(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
+                        chdir(dir.entries[i].name);
+
+                        extractDir(arr[inodeNum].block + arr[inodeNum].offset, fd, arr, depth+1);
+
+                        chdir("..");
+                        chown(dir.entries[i].name, arr[inodeNum].node_info.st_uid, arr[inodeNum].node_info.st_gid);
+                        if (utime(dir.entries[i].name, &times) != 0)
+                            perror("ERROR:");
+                    }    
+                }
+            }
+            else if(S_ISREG(arr[inodeNum].node_info.st_mode) && list->next == NULL)
+            {
+                if (strcmp(list->dir, dir.entries[i].name)== 0)
+                {
+                    found = 1;
+                    if (arr[inodeNum].extracted == 0)
+                    {
+                        {
+                            arr[inodeNum].extracted = 1;
+                            ExtractFile(fd, dir.entries[i].name, arr[inodeNum].offset, arr[inodeNum].node_info.st_size, arr[inodeNum].compression_size);
+
+                            chmod(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
+                            chown(dir.entries[i].name, arr[inodeNum].node_info.st_uid, arr[inodeNum].node_info.st_gid);
+                            if (utime(dir.entries[i].name, &times) != 0)
+                                perror("utime() error");
+
+                            char *path;
+                            path=get_current_dir_name();
+                            char *name = malloc(strlen(path)+1+strlen(dir.entries[i].name)+1);
+                            name[0] = '\0';
+                            strcat(name,path);
+                            strcat(name,"/");
+                            strcat(name,dir.entries[i].name);
+                            
+                            arr[inodeNum].pathname = name;
+        //                    printArrayNode(arr[inodeNum]);
+                            free(path);   
+                        }
+                    }
+                    else    //File has been extracted. So I'm dealing with hard link.
+                    {
+                        char *relLink;
+                        char *path;
+                        path=get_current_dir_name();
+                        relLink = relative_string(arr[inodeNum].pathname, path, 30*depth);
+
+                        if(link(relLink, dir.entries[i].name) == -1)
+                            perror("ERROR:");
+                        free(path);
+                        free(relLink);
+                    }
+                }
+            }
+        }
+
+    } while (dir.next != -1);
+
+    free(dir.entries);
+    free(start);
+    if (found == 0)
+    {
+        fprintf(stderr, "No such file/dir!\n");
+        return 1;
+    }
+    return 0;
+}
+
+                                        
+
+                    
 int extractDir(int blockNum, int fd, node *arr, int depth)
 {
     int i;
@@ -551,9 +687,6 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
 
 
                     int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
-                                        
-
-                    
                     chmod(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
                     chown(dir.entries[i].name, arr[inodeNum].node_info.st_uid, arr[inodeNum].node_info.st_gid);
                     if (utime(dir.entries[i].name, &times) != 0)
@@ -608,6 +741,8 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
     free(start);
     return 0;
 }
+
+
 
 char * getSymLinkPath(char *argv)
 {
