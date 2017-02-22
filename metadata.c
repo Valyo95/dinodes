@@ -28,10 +28,10 @@ int md_create(metadata ** md, int block_size)
 	mdp->listMax = (block_size - 2*sizeof(int)) / sizeof(dinode);
 	mdp->dirMax = (block_size - 2*sizeof(int)) / sizeof(dirEntry);
 
-	printf("metadata created for block size %d\n",block_size);
+/*	printf("metadata created for block size %d\n",block_size);
 	printf("size of stat is %ld\n",sizeof(struct stat));
 	printf("maxList %d, maxDirinfo %d\n\n",mdp->listMax,mdp->dirMax);
-
+*/
 	return 0;
 }
 

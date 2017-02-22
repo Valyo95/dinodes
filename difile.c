@@ -111,7 +111,7 @@ int di_createfile(char * filename, listofdirs * dirlist, int compress)
     WriteBlock(fd, 0, block);
 
     md_writetofile(md, fd);
-    md_printall(md);
+//    md_printall(md);
 
     printf("DI FILE '%s' CREATED!Printing head:\n", filename);
     printf("FILE_SIZE: %d\n",head.file_size);
@@ -184,7 +184,6 @@ int di_append(char * filename, listofdirs * dirlist, int compress)
 
         if(S_ISDIR(st.st_mode))
         {
-
             dinodes_added = di_append_dir(fd, file_name, 1, md, compress, &metadata_block);
         }
         else if(S_ISREG(st.st_mode))
@@ -195,16 +194,19 @@ int di_append(char * filename, listofdirs * dirlist, int compress)
             {
                 dinodes_added = 1;
                 md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
-                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
+//                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
                 file_block = WriteFile(fd, metadata_block, file_name, compress, &compression_size);
                 if (compression_size != -1)
                 {
+                    printf("edwww\n");
                     metadata_block += compression_size / BLOCK_SIZE;
                     if (compression_size % BLOCK_SIZE != 0)
                         metadata_block++; 
                 }
                 else
                 {
+                    printf("ekeii\n");
+
                     metadata_block += st.st_size / BLOCK_SIZE;
                     if (st.st_size % BLOCK_SIZE != 0)
                         metadata_block++; 
@@ -243,15 +245,16 @@ int di_append(char * filename, listofdirs * dirlist, int compress)
 
     head.file_size = (BlockCounter(fd) + md->block_count)*BLOCK_SIZE;
     head.dinodes = md->dinode_count;
-    head.metadata_block = metadata_block;
+    int new_meta_start = BlockCounter(fd);
     printf("New metadata_block is %d\n",metadata_block);
+    head.metadata_block = metadata_block;
 
     memcpy(block, &head, sizeof(head));
     WriteBlock(fd, 0, block);
 
-    int new_meta_start = BlockCounter(fd);
     md_writetofile(md, fd);
     md_printall(md);
+
 
     int currBlock = metadata_block + 1;
     int next = 0;
@@ -280,6 +283,7 @@ int di_append(char * filename, listofdirs * dirlist, int compress)
     {
         path = path_to_list(current->dir);
         strcpy(new_entry.name, path->last->dir);
+        printf("%s\n", new_entry.name);
         new_entry.dinode_num = entry_nums[i];
 
         memcpy(block, &new_entry, sizeof(dirEntry));
@@ -289,16 +293,17 @@ int di_append(char * filename, listofdirs * dirlist, int compress)
     block = start;
     WriteBlock(fd, currBlock, block);
 
-    currBlock = metadata_block;
+    currBlock = metadata_block+1;
     next = 0;
     do
     {
         currBlock += next;        
-
-        ReadBlock(fd, currBlock, block);
+        printf("CURR block %d\n",currBlock );
+        ReadBlock(fd, currBlock, start);
         block = start;
         block += sizeof(int);
         memcpy(&next, block, sizeof(int));
+        printf("next = %d\n", next);
     }
     while (next != -1);
 
@@ -324,6 +329,7 @@ int di_append(char * filename, listofdirs * dirlist, int compress)
 
 int di_append_dir(int fd, char *dirname, int parent_num, metadata * md, int compress, int * metadata_block)
 {
+    printf("metadata_block %d\n", *metadata_block);
     dirInfo * dInfo;
 
     int count = 1;
@@ -360,6 +366,7 @@ int di_append_dir(int fd, char *dirname, int parent_num, metadata * md, int comp
 
         if(S_ISDIR(st.st_mode))
         {
+            printf("dasdasdasd\n");
             /*this dirInfo will be created at next available block*/
             md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);    
             count += di_add_dir(fd, file_name, dinode_num, md, compress);
@@ -367,11 +374,12 @@ int di_append_dir(int fd, char *dirname, int parent_num, metadata * md, int comp
         else if(S_ISREG(st.st_mode))
         {
             dinode_num = md_find_dinode(md, st.st_ino);
-
+            dinode_num = -1;
             if (dinode_num == -1)
             {
                 md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
-                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
+//                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
+                    printf("edwww\n\n\n");
                 file_block = WriteFile(fd, *metadata_block, file_name, compress, &compression_size);
                 if (compression_size != -1)
                 {
@@ -381,6 +389,8 @@ int di_append_dir(int fd, char *dirname, int parent_num, metadata * md, int comp
                 }
                 else
                 {
+                    printf("ekeiiiiii\n\n\n");
+
                     *metadata_block += st.st_size / BLOCK_SIZE;
                     if (st.st_size % BLOCK_SIZE != 0)
                         (*metadata_block)++; 
@@ -411,6 +421,8 @@ int di_append_dir(int fd, char *dirname, int parent_num, metadata * md, int comp
     }
     closedir(dir);
     chdir("..");
+
+        printf("metadata_block %d\n", *metadata_block);
 
     return count;   
 }
@@ -467,7 +479,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md, int compres
             if (dinode_num == -1)
             {
                 md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
-                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
+//                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
                 file_block = WriteFile(fd, -1, file_name, compress, &compression_size);
                 md_add_dinode(md, st,'f', file_block, compression_size);
             }

@@ -18,6 +18,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md, int compres
 int di_find_dirlist(int fd, listofdirs * dirlist);
 int di_find_dir(int fd, dirNode *dirname,int blockNum, node *arr, char *path);
 int di_append_dir(int fd, char *dirname, int parent_num, metadata * md, int compress, int * metadata_block);
+int di_append(char * filename, listofdirs * dirlist, int compress);
 
 Header di_getHeader(int fd);
 

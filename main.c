@@ -45,7 +45,24 @@ int main(int argc, char *argv[])
 		}
 		else if (strcmp(argv[i], "-a") == 0)
 		{
+			int j = 1;
+			while(j< argc)
+			{
+				if (strcmp(argv[i], "-j") == 0)
+					compression = 1;
+				j++;
+			}
+			listofdirs * dirlist;
+			dirlist_create(&dirlist);
+			for (int j = i+2; j < argc; ++j)
+			{
+				dirlist_add_dir(dirlist, argv[j]);
+			}
 			
+			di_append(argv[i+1],dirlist,compression);
+
+		    dirlist_free(&dirlist);
+		    return 0;
 		}
 		else if (strcmp(argv[i], "-x") == 0)
 		{

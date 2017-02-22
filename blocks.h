@@ -1,7 +1,7 @@
 #ifndef BLOCKS_H
 #define BLOCKS_H
 
-#define BLOCK_SIZE 512
+#define BLOCK_SIZE 1024
 
 int OpenFile(const char * path);
 int CloseFile(int fd);
