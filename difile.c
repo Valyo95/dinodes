@@ -225,7 +225,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md, int compres
 int di_find_dirlist(int fd, listofdirs * dirlist)
 {
 	int count = 0;
-
+    listofdirs * pathlist; 
 	dirNode * current = dirlist->first;
 	char * file_name;
 
@@ -234,18 +234,14 @@ int di_find_dirlist(int fd, listofdirs * dirlist)
 	while (current != NULL)
 	{
 		file_name = current->dir;
-
-		if (!di_find_dir(fd, file_name, dinodes_array[0].block + dinodes_array[0].offset, dinodes_array))
-		{
-			printf("'%s' was NOT found!\n", file_name);
-		}
-		else
-		{
-			printf("'%s' was found!\n", file_name);
-			count++;
-		}
-
+        pathlist = path_to_list(current->dir);
+        
+		di_find_dir(fd,pathlist->first , dinodes_array[0].block + dinodes_array[0].offset, dinodes_array, file_name);
+		
+        
         current = current->next;
+        dirlist_free(&pathlist);
+
 	}
 
     freeNodeArray(&dinodes_array, fd);
@@ -255,16 +251,14 @@ int di_find_dirlist(int fd, listofdirs * dirlist)
 
 
 
-int di_find_dir(int fd, char * dirname,int blockNum, node *arr)
+int di_find_dir(int fd, dirNode *list,int blockNum, node *arr, char *path)
 {
-    //printf("blockNum = %d, fd = %d, depth = %d\n", blockNum, fd, depth);
-
     int i;
+    int found = 0;
     void *start = malloc(BLOCK_SIZE*sizeof(char));
     void *block = start;
     dirInfo dir;
     dir.entries = malloc(MAX_DIR_ENTRIES*sizeof(dirEntry));
-    
     do
     {
         ReadBlock(fd, blockNum, start);
@@ -277,37 +271,50 @@ int di_find_dir(int fd, char * dirname,int blockNum, node *arr)
         for (i = 0; i < dir.count; ++i)
         {
             if ( !strcmp(dir.entries[i].name, ".") || !strcmp(dir.entries[i].name, "..") )
-            {
                 continue;
-            }
-
-            if ( !strcmp(dirname, dir.entries[i].name))
-            {
-            	free(dir.entries);
-    			free(start);
-      			return 1;
-            }
-
-            int inodeNum = dir.entries[i].dinode_num - 1;
-
+            int inodeNum = dir.entries[i].dinode_num-1;
+            
             if(S_ISDIR(arr[inodeNum].node_info.st_mode))
             {
-                if ( di_find_dir(fd, dirname, arr[inodeNum].block + arr[inodeNum].offset, arr) == 1)
+                if(strcmp(list->dir, dir.entries[i].name)== 0)
                 {
-                	free(dir.entries);
-    				free(start);
-                	return 1;
+                    free(dir.entries);
+                    free(start);
+                    if(list->next != NULL)
+                        return di_find_dir(fd, list->next, arr[inodeNum].block + arr[inodeNum].offset, arr, path);
+
+                    found = 1;
+                    printf("%s found!\n", path);
+                    return 0;    
                 }
             }
-
+            else if(S_ISREG(arr[inodeNum].node_info.st_mode) && list->next == NULL)
+            {
+                if (strcmp(list->dir, dir.entries[i].name) == 0)
+                {
+                    free(dir.entries);
+                    free(start);
+                
+                    found = 1;
+                    printf("%s found!\n", path);
+                    return 0;                    
+                }
+            }
         }
 
     } while (dir.next != -1);
 
     free(dir.entries);
     free(start);
+    if (found == 0)
+    {
+        fprintf(stderr, "No file/dir with name %s\n", path);
+        return 1;
+    }
     return 0;
 }
+
+
 
 
 
@@ -532,9 +539,8 @@ int extractDiFile(int fd, char *fileName,listofdirs *list)
     }
     else
     {
-        while (current != NULL)
+        while (   current != NULL)
         {
-            pathlist = path_to_list(current->dir);
 
             if(SearchNode(arr[0].block + arr[0].offset, fd, arr, 0, pathlist->first) == 0 )
             {

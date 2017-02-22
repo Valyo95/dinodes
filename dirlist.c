@@ -91,8 +91,6 @@ listofdirs * path_to_list(char * path)
 
 	while (current != NULL)
 	{
-		printf("print: %s\n",current->dir);
-
 		current = current->next;
 	}
 

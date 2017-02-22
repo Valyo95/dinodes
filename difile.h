@@ -16,7 +16,7 @@ typedef struct Header Header;
 int di_createfile(char * filename, listofdirs * dirlist, int compress);
 int di_add_dir(int fd, char *dirname, int parent_num, metadata * md, int compress);
 int di_find_dirlist(int fd, listofdirs * dirlist);
-int di_find_dir(int fd, char *dirname,int blockNum, node *arr);
+int di_find_dir(int fd, dirNode *dirname,int blockNum, node *arr, char *path);
 
 Header di_getHeader(int fd);
 

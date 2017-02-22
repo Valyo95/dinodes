@@ -86,7 +86,6 @@ int main(int argc, char const *argv[])
 			dirlist_create(&dirlist);
 			for (int j = i+2; j < argc; ++j)
 			{
-				printf("%s\n", argv[j]);
 				dirlist_add_dir(dirlist, argv[j]);
 			}
 
