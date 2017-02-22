@@ -59,8 +59,10 @@ int main(int argc, char const *argv[])
                 dirlist_add_dir(dirlist, argv[j]);
             }
 
-		    extractDiFile(fd, argv[i+1], dirlist);
-		    CloseFile(fd);
+
+		      extractDiFile(fd, argv[i+1], dirlist);
+
+		      CloseFile(fd);
             dirlist_free(&dirlist);
 
 		    return 0;			

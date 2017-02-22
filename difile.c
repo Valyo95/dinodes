@@ -128,6 +128,19 @@ int di_createfile(char * filename, listofdirs * dirlist, int compress)
 
 
 
+int di_append(char * filename, listofdirs * dirlist, int compress)
+{
+    int fd;
+    fd = OpenFile(filename);
+
+    if (BlockCounter(fd) == 0)
+    {/*no file exists*/
+        di_createfile(filename, dirlist, compress);
+        return 0;
+    }
+}
+
+
 int di_add_dir(int fd, char *dirname, int parent_num, metadata * md, int compress)
 {
     dirInfo * dInfo;
@@ -510,7 +523,7 @@ int extractDiFile(int fd, char *fileName,listofdirs *list)
     mkdir(name, S_IRWXU | S_IRWXG | S_IRWXO);
     chdir(name);
 
-    if(list == NULL)
+    if(list->first == NULL)
     {    
         
         extractDir(arr[0].block + arr[0].offset, fd, arr, 0);
