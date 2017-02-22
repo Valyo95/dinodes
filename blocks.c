@@ -256,6 +256,7 @@ int ExtractFile(int fd, char * filename, int start_block, off_t file_size, off_t
 	else
 	{
 		extract_fd = OpenFile(filename);
+		create_name = filename;
 	}
 
 	if (BlockCounter(extract_fd) != 0)

@@ -14,6 +14,7 @@ int main(int argc, char const *argv[])
 	int fd;
 	int i = 1;
 	int compression = 0;
+
 	while(i < argc)
 	{
 		if(strcmp(argv[i], "-c") == 0)
@@ -27,7 +28,7 @@ int main(int argc, char const *argv[])
 			}
 			listofdirs * dirlist;
 			dirlist_create(&dirlist);
-			for (int j = i+1; j < argc; ++j)
+			for (int j = i+2; j < argc; ++j)
 			{
 				dirlist_add_dir(dirlist, argv[j]);
 			}
@@ -50,7 +51,12 @@ int main(int argc, char const *argv[])
 		else if (strcmp(argv[i], "-x") == 0)
 		{
 			fd = OpenFile(argv[i+1]);
-		    extractDiFile(fd, argv[i+1]);
+			listofdirs * list;
+			dirlist_create(&list);
+			dirlist_add_dir(list, "ekf/");
+			dirlist_add_dir(list, "file1");
+
+		    extractDiFile(fd, argv[i+1],list );
 		    CloseFile(fd);			
 		    return 0;			
 		}
@@ -71,8 +77,9 @@ int main(int argc, char const *argv[])
 			
 			listofdirs * dirlist;
 			dirlist_create(&dirlist);
-			for (int j = i+1; j < argc; ++j)
+			for (int j = i+2; j < argc; ++j)
 			{
+				printf("%s\n", argv[j]);
 				dirlist_add_dir(dirlist, argv[j]);
 			}
 
