@@ -51,13 +51,18 @@ int main(int argc, char const *argv[])
 		else if (strcmp(argv[i], "-x") == 0)
 		{
 			fd = OpenFile(argv[i+1]);
-			listofdirs * list;
-			dirlist_create(&list);
-			dirlist_add_dir(list, "ekf/");
-			dirlist_add_dir(list, "file1");
+			listofdirs * dirlist;
+            dirlist_create(&dirlist);
 
-		    extractDiFile(fd, argv[i+1],list );
-		    CloseFile(fd);			
+            for (int j = i+2; j < argc; ++j)
+            {
+                dirlist_add_dir(dirlist, argv[j]);
+            }
+
+		    extractDiFile(fd, argv[i+1], dirlist);
+		    CloseFile(fd);
+            dirlist_free(&dirlist);
+
 		    return 0;			
 		}
 		else if (strcmp(argv[i], "-d") == 0)

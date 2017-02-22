@@ -497,8 +497,12 @@ int dirTraverseMetaData(int blockNum, int fd, node *arr, int depth)
 
 int extractDiFile(int fd, char *fileName,listofdirs *list)
 {
-    node *arr; 
+    int found = 0;
+    node *arr;
     arr = getInodesArray(fd);
+
+    dirNode * current = list->first;
+    listofdirs * pathlist; 
     char *name = malloc((strlen(fileName)+1)*sizeof(char));
     strcpy(name,fileName);
     name[strlen(name)-3] = '\0';
@@ -515,10 +519,22 @@ int extractDiFile(int fd, char *fileName,listofdirs *list)
     }
     else
     {
-        if(SearchNode(arr[0].block + arr[0].offset, fd, arr, 0, list->first) == 1 )
+        while (current != NULL)
         {
-            remove(name);
+            pathlist = path_to_list(current->dir);
+
+            if(SearchNode(arr[0].block + arr[0].offset, fd, arr, 0, pathlist->first) == 0 )
+            {
+                found = 1;
+            }
+
+            current = current->next;
+
+            dirlist_free(&pathlist);
         }
+
+        if (found == 0)
+            remove(name);
     }
 
     free(name);

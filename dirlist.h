@@ -4,7 +4,7 @@
 typedef struct dirNode dirNode;
 struct dirNode
 {
-	char dir[30];
+	char dir[50];
 	dirNode * next;
 };
 
