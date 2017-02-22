@@ -17,6 +17,7 @@
 struct dinode
 {
 	struct stat node_info;
+	off_t compression_size;
 	int pointer;/*block offset of dir info for dirs,block of file for files*/
 };
 typedef struct dinode dinode;
@@ -84,6 +85,7 @@ typedef struct metadata metadata;
 typedef struct node
 {
 	struct stat node_info;
+	off_t compression_size;
 	int block;
 	int offset;
 
@@ -94,7 +96,7 @@ typedef struct node
 int md_create(metadata ** md, int block_size);
 int md_add_block(metadata * md, int block_type);
 
-int md_add_dinode(metadata * md, struct stat node_info, char type, int pointer);/*'f' file,'d' dir*/
+int md_add_dinode(metadata * md, struct stat node_info, char type, int pointer, int compression_size);/*'f' file,'d' dir*/
 int md_create_dirInfo(metadata *md, dirInfo ** dInfo);
 int md_add_dirEntry(metadata *md, dirInfo ** dInfo, char name[30], int dinode_num);
 int md_find_dinode(metadata *md, ino_t inode_num);

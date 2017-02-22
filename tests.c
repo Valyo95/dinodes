@@ -14,6 +14,7 @@
 int test_blocks(char * dest, char * source)
 {
 	int fd,i;
+	off_t compression_size;
 
 	fd = OpenFile(dest);
 
@@ -36,7 +37,7 @@ int test_blocks(char * dest, char * source)
 
 	printf("Wrote to '%s'.It now has %d blocks\n",dest,BlockCounter(fd));
 
-	WriteFile(fd,1,source);
+	WriteFile(fd,1,source, 0, &compression_size);
 	printf("Wrote file '%s' to file '%s'!\n",source,dest);
 
 	printf("'%s' now has %d blocks!\n",dest,BlockCounter(fd));
@@ -58,8 +59,8 @@ int test_metadata()
 
 	md_create(&md,200);
 
-	md_add_dinode(md, sample, 'd', 1);
-	md_add_dinode(md, sample, 'd', 2);
+	md_add_dinode(md, sample, 'd', 1, 0);
+	md_add_dinode(md, sample, 'd', 2, 1);
 	md_create_dirInfo(md, &dInfo);
 	md_add_dirEntry(md,&dInfo,".",1);
 	md_add_dirEntry(md,&dInfo,"..",2);

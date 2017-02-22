@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "blocks.h"
@@ -97,17 +98,49 @@ int BlockCounter(int fd)
 }
 
 
-int WriteFile(int fd, int block_num, const char * source)
+int WriteFile(int fd, int block_num, const char * source, int compress, off_t * compression_size)
 {
 	int fds, source_blocks, dest_blocks, move_blocks;
 	int i,j;
 	void * block, * end_blocks, * start;
+	char * command;
+	char * compressed_name;
+	struct stat st;
 
-	fds = OpenFile(source);
-	source_blocks = BlockCounter(fds);
-	dest_blocks = BlockCounter(fd);
+	if (compress == 1)
+	{
+		mkdir("temp_compress_dir", 0777);
+
+		command = malloc( (22+strlen(source))*sizeof(char) );
+		sprintf(command, "cp %s temp_compress_dir", source);
+		system(command);
+		free(command);
+
+		compressed_name = malloc(strlen(source+4)*sizeof(char));
+		sprintf(compressed_name, "%s.gz", source);
+
+		chdir("temp_compress_dir");
+		if (fork() == 0)
+		{
+			execlp("gzip", "gzip", source, (char *) NULL);
+		}
+
+		waitpid(-1,NULL,0);/*wait for zip to finish*/
+		stat(compressed_name, &st);
+		*compression_size = st.st_size;
+
+		fds = OpenFile(compressed_name);/*open compression file for write to di file*/
+	}
+	else
+	{
+		*compression_size = -1;
+		fds = OpenFile(source);/*open normal file for compression*/
+	}
 
 	block = malloc(BLOCK_SIZE);
+
+	source_blocks = BlockCounter(fds);
+	dest_blocks = BlockCounter(fd);
 
 	/*If we want to write the source file,at a specific block*/
 	/*Make sure to "push" blocks so as to not lose information of dest*/
@@ -192,18 +225,42 @@ int WriteFile(int fd, int block_num, const char * source)
 	CloseFile(fds);
 	free(block);
 
+	if (compress == 1)
+	{
+		remove(compressed_name);
+		free(compressed_name);
+
+		chdir("..");
+		rmdir("temp_compress_dir");
+	}
+
 	return block_num;
 }
 
 
 
-int ExtractFile(int fd, char * filename, int start_block, off_t file_size)
+int ExtractFile(int fd, char * filename, int start_block, off_t file_size, off_t compression_size)
 {
-	int extract_fd = OpenFile(filename);
+	int extract_fd;
+	char * compressed_name;
+	char * create_name;
+
+	if (compression_size != -1)
+	{
+		compressed_name = malloc( (strlen(filename)+4)*sizeof(char) );
+		sprintf(compressed_name, "%s.gz", filename);
+		create_name = compressed_name;
+		extract_fd = OpenFile(compressed_name);/*Open compressed file (we will write the compressed file)*/
+		file_size = compression_size;
+	}
+	else
+	{
+		extract_fd = OpenFile(filename);
+	}
 
 	if (BlockCounter(extract_fd) != 0)
 	{/*file already exists,do nothing*/
-		printf("ExtractFile: File '%s' already exists\n", filename);
+		printf("ExtractFile: File '%s' already exists\n", create_name);
 		CloseFile(extract_fd);
 		return -1;
 	}
@@ -237,6 +294,17 @@ int ExtractFile(int fd, char * filename, int start_block, off_t file_size)
 
 	free(block);
 	CloseFile(extract_fd);
+
+	if (compression_size != -1)
+	{
+		if (fork() == 0)
+		{
+			execlp("gzip", "gzip", "-d", compressed_name, (char *) NULL);
+		}
+
+		free(compressed_name);
+		waitpid(-1,NULL,0);/*wait for unzip to finish*/
+	}
 
 	return 0;
 }

@@ -25,7 +25,7 @@ int main(int argc, char const *argv[])
 	dirlist_add_dir(dirlist, "ekf");
 //	dirlist_add_dir(dirlist, "tempdir");
 
-	di_createfile("testcreate.di", dirlist);
+	di_createfile("testcreate.di", dirlist, 1);
 
 	int fd = OpenFile("testcreate.di");
 	int blks = BlockCounter(fd);

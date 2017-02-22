@@ -21,7 +21,7 @@
 #include "funcs.h"
 
 
-int di_createfile(char * filename, listofdirs * dirlist)
+int di_createfile(char * filename, listofdirs * dirlist, int compress)
 {
 	int fd;
 	fd = OpenFile(filename);
@@ -47,8 +47,9 @@ int di_createfile(char * filename, listofdirs * dirlist)
     st.st_ino = -1;
 	int count = 1;
     int dinode_num;
+    off_t compression_size;
 
-    md_add_dinode(md,st,'d',0);
+    md_add_dinode(md,st,'d', 0, 0);
 
     md_create_dirInfo(md,&dInfo);
     md_add_dirEntry(md,&dInfo,".", 1);
@@ -69,7 +70,7 @@ int di_createfile(char * filename, listofdirs * dirlist)
         if(S_ISDIR(st.st_mode))
         {
             md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
-            count += di_add_dir(fd, file_name, 1, md);
+            count += di_add_dir(fd, file_name, 1, md, compress);
         }
         else if(S_ISREG(st.st_mode))
         {
@@ -79,8 +80,8 @@ int di_createfile(char * filename, listofdirs * dirlist)
             {
                 md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
                 printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
-                file_block = WriteFile(fd, -1, file_name);
-                md_add_dinode(md, st,'f', file_block);
+                file_block = WriteFile(fd, -1, file_name, compress, &compression_size);
+                md_add_dinode(md, st,'f', file_block, compression_size);
             }
             else
             {
@@ -94,7 +95,7 @@ int di_createfile(char * filename, listofdirs * dirlist)
             char *linkName = getSymLinkPath(file_name);
             printf("Symbolic link :%s shows to name: %s\n", file_name, linkName);
             file_block = WriteSoftLink(fd, -1, linkName);
-            md_add_dinode(md, st,'f', file_block);
+            md_add_dinode(md, st,'f', file_block, 0);
             free(linkName);
 
         }
@@ -127,7 +128,7 @@ int di_createfile(char * filename, listofdirs * dirlist)
 
 
 
-int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
+int di_add_dir(int fd, char *dirname, int parent_num, metadata * md, int compress)
 {
     dirInfo * dInfo;
 
@@ -137,7 +138,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
     int dinode_num;
 
     lstat(dirname, &st);
-    md_add_dinode(md,st,'d',0);
+    md_add_dinode(md,st,'d',0, 0);
 
     chdir(dirname);
     dinode_num = md->dinode_count;
@@ -151,6 +152,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
     struct dirent *dp;
     char cur_dir[1024];
     getcwd(cur_dir,1024);
+    off_t compression_size;
     
     dir = opendir(cur_dir);
     while ((dp=readdir(dir)) != NULL) 
@@ -167,7 +169,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
         {
             /*this dirInfo will be created at next available block*/
             md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);    
-            count += di_add_dir(fd, file_name, dinode_num, md);
+            count += di_add_dir(fd, file_name, dinode_num, md, compress);
         }
         else if(S_ISREG(st.st_mode))
         {
@@ -177,8 +179,8 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
             {
                 md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
                 printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
-                file_block = WriteFile(fd, -1, file_name);
-                md_add_dinode(md, st,'f', file_block);
+                file_block = WriteFile(fd, -1, file_name, compress, &compression_size);
+                md_add_dinode(md, st,'f', file_block, compression_size);
             }
             else
             {
@@ -194,7 +196,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
 
             file_block = WriteSoftLink(fd, -1, linkName);
             printf("Symlink saved at %d\n",file_block);
-            md_add_dinode(md, st,'f', file_block);
+            md_add_dinode(md, st,'f', file_block, 0);
             
             free(linkName);
         }
@@ -209,7 +211,6 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md)
 
 int di_find_dirlist(int fd, listofdirs * dirlist)
 {
-	int found = 1;
 	int count = 0;
 
 	dirNode * current = dirlist->first;
@@ -224,7 +225,6 @@ int di_find_dirlist(int fd, listofdirs * dirlist)
 		if (!di_find_dir(fd, file_name, dinodes_array[0].block + dinodes_array[0].offset, dinodes_array))
 		{
 			printf("'%s' was NOT found!\n", file_name);
-			found = 0;
 		}
 		else
 		{
@@ -237,17 +237,7 @@ int di_find_dirlist(int fd, listofdirs * dirlist)
 
     freeNodeArray(&dinodes_array, fd);
 
-	if (found)
-	{
-		printf("List of dirs found!\n");
-		return 1;
-	}
-	else
-	{
-		printf("List of dirs not in di file!(%d found)\n",count);
-		return 0;
-	}
-	
+    return count;	
 }
 
 
@@ -357,6 +347,7 @@ node * getInodesArray(int fd)
             arr[i].block = currBlock;
             arr[i].offset = temp[j].pointer;
             arr[i].node_info = temp[j].node_info;
+            arr[i].compression_size = temp[j].compression_size;
            
             arr[i].pathname = NULL;
             arr[i].extracted = 0;
@@ -555,17 +546,21 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
 
                 if (arr[inodeNum].extracted == 0)
                 {
-                    int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
                     arr[inodeNum].extracted = 1;
-                    ExtractFile(fd, dir.entries[i].name, arr[inodeNum].offset, arr[inodeNum].node_info.st_size);
-                    
-                    close(ffd);
+                    ExtractFile(fd, dir.entries[i].name, arr[inodeNum].offset, arr[inodeNum].node_info.st_size, arr[inodeNum].compression_size);
+
+
+                    int ffd = open(dir.entries[i].name, O_RDWR | O_CREAT, 0666);
+                                        
+
                     
                     chmod(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
                     chown(dir.entries[i].name, arr[inodeNum].node_info.st_uid, arr[inodeNum].node_info.st_gid);
                     if (utime(dir.entries[i].name, &times) != 0)
                         perror("utime() error");
-                       
+
+                        close(ffd);
+
                     char *path;
                     path=get_current_dir_name();
                     char *name = malloc(strlen(path)+1+strlen(dir.entries[i].name)+1);
@@ -586,6 +581,7 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
                     char *path;
                     path=get_current_dir_name();
                     relLink = relative_string(arr[inodeNum].pathname, path, 30*depth);
+
                     if(link(relLink, dir.entries[i].name) == -1)
                         perror("ERROR:");
                     free(path);
@@ -594,9 +590,15 @@ int extractDir(int blockNum, int fd, node *arr, int depth)
             }
             else if(S_ISLNK(arr[inodeNum].node_info.st_mode))
             {
-                printf("BIKA offset %d\n",arr[inodeNum].offset);
                 char * softPath = ReadSoftLink(fd, arr[inodeNum].offset);
                 symlink(softPath, dir.entries[i].name);
+
+                chmod(dir.entries[i].name, arr[inodeNum].node_info.st_mode);
+                chown(dir.entries[i].name, arr[inodeNum].node_info.st_uid, arr[inodeNum].node_info.st_gid);
+                //BELOW IS COMMENTED BECAUSE UTIME WONT WORK FOR SOFT LINKS
+                // if (utime(dir.entries[i].name, &times) != 0)
+                //     perror("utime() error");
+                
                 free(softPath);
             }    
         }

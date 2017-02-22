@@ -89,7 +89,7 @@ int md_add_block(metadata * md, int block_type)
 
 
 
-int md_add_dinode(metadata * md, struct stat node_info, char type, int pointer)
+int md_add_dinode(metadata * md, struct stat node_info, char type, int pointer, int compression_size)
 {
 	if (md->last_dinodelist == NULL)/*this is the first dinode*/
 	{
@@ -103,6 +103,7 @@ int md_add_dinode(metadata * md, struct stat node_info, char type, int pointer)
 	}
 
 	md->last_dinodelist->dinodes[md->listIndex].node_info = node_info;
+	md->last_dinodelist->dinodes[md->listIndex].compression_size = compression_size;
 	md->last_dinodelist->count++;
 
 	if (type == 'f')
@@ -241,7 +242,7 @@ void md_printall(metadata *md)
 			for (i=0;i<dList->count;i++)
 			{
 				dinode++;
-				printf("%d: stat:..., pointer: %d, inodenum: %ld\n",dinode, dList->dinodes[i].pointer, dList->dinodes[i].node_info.st_ino);
+				printf("%d: stat:..., compression_size: %d, pointer: %d, inodenum: %ld\n",dinode, dList->dinodes[i].compression_size, dList->dinodes[i].pointer, dList->dinodes[i].node_info.st_ino);
 			}
 		}
 		else
