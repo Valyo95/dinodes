@@ -18,17 +18,19 @@ int main(int argc, char *argv[])
 	{
 		if(strcmp(argv[i], "-c") == 0)
 		{
-			int j = 1;
-			while(j< argc)
+			int j;
+			if (strcmp(argv[i+1], "-j") == 0)
 			{
-				if (strcmp(argv[i], "-j") == 0)
-					compression = 1;
-				j++;
+				compression = 1;
+				i++;
 			}
+
 			listofdirs * dirlist;
 			dirlist_create(&dirlist);
-			for (int j = i+2; j < argc; ++j)
+			for (j = i+2; j < argc; ++j)
 			{
+				if(argv[j][ strlen(argv[j]) -1 ] == '/')
+					argv[j][strlen(argv[j])-1] = '\0';
 				dirlist_add_dir(dirlist, argv[j]);
 			}
 			char *name = malloc((strlen(argv[i+1]) + 4)*sizeof(char));
@@ -45,16 +47,16 @@ int main(int argc, char *argv[])
 		}
 		else if (strcmp(argv[i], "-a") == 0)
 		{
-			int j = 1;
-			while(j< argc)
+			int j;
+			if (strcmp(argv[i+1], "-j") == 0)
 			{
-				if (strcmp(argv[i], "-j") == 0)
-					compression = 1;
-				j++;
+				compression = 1;
+				i++;
 			}
+
 			listofdirs * dirlist;
 			dirlist_create(&dirlist);
-			for (int j = i+2; j < argc; ++j)
+			for (j = i+2; j < argc; ++j)
 			{
 				dirlist_add_dir(dirlist, argv[j]);
 			}

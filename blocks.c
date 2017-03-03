@@ -146,6 +146,9 @@ int WriteFile(int fd, int block_num, const char * source, int compress, off_t * 
 	/*Make sure to "push" blocks so as to not lose information of dest*/
 	if (block_num > -1 && block_num < dest_blocks)
 	{
+		if (source_blocks == 0)
+			return 0;
+
 		move_blocks = dest_blocks - block_num;
 
 		end_blocks = malloc(move_blocks*BLOCK_SIZE);

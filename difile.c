@@ -78,7 +78,7 @@ int di_createfile(char * filename, listofdirs * dirlist, int compress)
             if (dinode_num == -1)
             {
                 md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
-                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
+                printf("New file '%s' with dinodenum %d!Saving\n",file_name, md->dinode_count+1);
                 file_block = WriteFile(fd, -1, file_name, compress, &compression_size);
                 md_add_dinode(md, st,'f', file_block, compression_size);
             }
@@ -111,320 +111,18 @@ int di_createfile(char * filename, listofdirs * dirlist, int compress)
     WriteBlock(fd, 0, block);
 
     md_writetofile(md, fd);
-//    md_printall(md);
+    // md_printall(md);
 
-    printf("DI FILE '%s' CREATED!Printing head:\n", filename);
-    printf("FILE_SIZE: %d\n",head.file_size);
+    printf("\nDI FILE '%s' CREATED!Printing head:\n", filename);
+    printf("FILE SIZE: %d bytes\n",head.file_size);
     printf("DINODES: %d\n",head.dinodes);
-    printf("METADATA_BLOCK: %d\n",head.metadata_block);
+    printf("METADATA BLOCK: %d\n",head.metadata_block);
 
 	CloseFile(fd);
 	md_free(&md);
 	free(block);
 
 	return 0;
-}
-
-
-
-
-int di_append(char * filename, listofdirs * dirlist, int compress)
-{
-    int fd;
-    fd = OpenFile(filename);
-
-    /*WRITE HEADER (FOR NOW)*/
-    if (BlockCounter(fd) == 0)
-    {/*no file exists*/
-        printf("'%s' does not exist.Using create instead of append!\n", filename);
-        return di_createfile(filename, dirlist, compress);
-    }
-
-    Header head = di_getHeader(fd);
-    int metadata_block = head.metadata_block;
-    void * block = malloc(BLOCK_SIZE);
-    void * start = block;
-
-    /*START CREATING FILE*/
-    metadata * md;
-    md_create(&md, BLOCK_SIZE);
-    int count = head.dinodes;
-    md->dinode_count = head.dinodes;
-
-    dirInfo * dInfo;
-    struct stat st;
-    st.st_ino = -1;
-    int dinode_num;
-    off_t compression_size;
-
-    dirNode * current = dirlist->first;
-    int list_size = 0;
-    while (current != NULL)
-    {
-        list_size++;
-        current = current->next;
-    }
-    current = dirlist->first;
-
-    int * entry_nums = malloc(list_size*sizeof(int));
-    entry_nums[0] = count + 1;
-    int index = 1;
-
-    char * file_name;
-    int dinodes_added;
-
-    while (current != NULL)
-    {
-        dinodes_added = 0;
-        int file_block;
-
-        file_name = current->dir;
-        lstat(file_name, &st);
-
-
-        if(S_ISDIR(st.st_mode))
-        {
-            dinodes_added = di_append_dir(fd, file_name, 1, md, compress, &metadata_block);
-        }
-        else if(S_ISREG(st.st_mode))
-        {
-            dinode_num = md_find_dinode(md, st.st_ino);
-
-            if (dinode_num == -1)
-            {
-                dinodes_added = 1;
-                md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
-//                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
-                file_block = WriteFile(fd, metadata_block, file_name, compress, &compression_size);
-                if (compression_size != -1)
-                {
-                    printf("edwww\n");
-                    metadata_block += compression_size / BLOCK_SIZE;
-                    if (compression_size % BLOCK_SIZE != 0)
-                        metadata_block++; 
-                }
-                else
-                {
-                    printf("ekeii\n");
-
-                    metadata_block += st.st_size / BLOCK_SIZE;
-                    if (st.st_size % BLOCK_SIZE != 0)
-                        metadata_block++; 
-                }
-                md_add_dinode(md, st,'f', file_block, compression_size);
-            }
-            else
-            {
-                printf("New hard link '%s' pointing to dinode %d\n", file_name, dinode_num);
-                md_add_dirEntry(md,&dInfo,file_name, dinode_num);
-            }
-        }
-        else if(S_ISLNK(st.st_mode))
-        {
-            dinodes_added = 1;
-            md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
-            char *linkName = getSymLinkPath(file_name);
-            printf("Symbolic link :%s shows to name: %s\n", file_name, linkName);
-            file_block = WriteSoftLink(fd, metadata_block, linkName);
-            metadata_block++;
-            md_add_dinode(md, st,'f', file_block, 0);
-            free(linkName);
-
-        }
-
-        current = current->next;
-        count += dinodes_added;
-        if (index != list_size)
-            entry_nums[index++] = count + 1; 
-
-        printf("ADDED %d dinodes!!entry_num %d\n", dinodes_added, entry_nums[index-1]);
-    }
-
-
-    /*WRITE CORRECT HEADER*/
-
-    head.file_size = (BlockCounter(fd) + md->block_count)*BLOCK_SIZE;
-    head.dinodes = md->dinode_count;
-    int new_meta_start = BlockCounter(fd);
-    printf("New metadata_block is %d\n",metadata_block);
-    head.metadata_block = metadata_block;
-
-    memcpy(block, &head, sizeof(head));
-    WriteBlock(fd, 0, block);
-
-    md_writetofile(md, fd);
-    md_printall(md);
-
-
-    int currBlock = metadata_block + 1;
-    int next = 0;
-    do
-    {
-        currBlock += next;        
-
-        ReadBlock(fd, currBlock, block);
-        block = start;
-        block += sizeof(int);
-        memcpy(&next, block, sizeof(int));
-    }
-    while (next != -1);
-
-    block = start;
-    memcpy(&count, block, sizeof(int));
-
-    block += 2*sizeof(int) + count*sizeof(dirEntry);
-
-    dirEntry new_entry;
-    current = dirlist->first;
-    listofdirs * path;
-
-    int i;
-    for (i=0;i<list_size;i++)
-    {
-        path = path_to_list(current->dir);
-        strcpy(new_entry.name, path->last->dir);
-        printf("%s\n", new_entry.name);
-        new_entry.dinode_num = entry_nums[i];
-
-        memcpy(block, &new_entry, sizeof(dirEntry));
-        block += sizeof(dirEntry);
-    }
-
-    block = start;
-    WriteBlock(fd, currBlock, block);
-
-    currBlock = metadata_block+1;
-    next = 0;
-    do
-    {
-        currBlock += next;        
-        printf("CURR block %d\n",currBlock );
-        ReadBlock(fd, currBlock, start);
-        block = start;
-        block += sizeof(int);
-        memcpy(&next, block, sizeof(int));
-        printf("next = %d\n", next);
-    }
-    while (next != -1);
-
-    int new_offset = new_meta_start - currBlock;
-    memcpy(block, &new_offset, sizeof(int));
-    block = start;
-    WriteBlock(fd, currBlock, block);
-
-
-    printf("DI FILE '%s' APPEND!Printing head:\n", filename);
-    printf("FILE_SIZE: %d\n",head.file_size);
-    printf("DINODES: %d\n",head.dinodes);
-    printf("METADATA_BLOCK: %d\n",head.metadata_block);
-
-    CloseFile(fd);
-    md_free(&md);
-    free(block);
-
-    return 0;
-}
-
-
-
-int di_append_dir(int fd, char *dirname, int parent_num, metadata * md, int compress, int * metadata_block)
-{
-    printf("metadata_block %d\n", *metadata_block);
-    dirInfo * dInfo;
-
-    int count = 1;
-    int file_block;
-    struct stat st;
-    int dinode_num;
-
-    lstat(dirname, &st);
-    md_add_dinode(md,st,'d',0, 0);
-
-    chdir(dirname);
-    dinode_num = md->dinode_count;
-
-    md_create_dirInfo(md,&dInfo);
-    md_add_dirEntry(md,&dInfo,".", dinode_num);
-    md_add_dirEntry(md,&dInfo,"..", parent_num);
-
-    char * file_name;
-    DIR *dir;
-    struct dirent *dp;
-    char cur_dir[1024];
-    getcwd(cur_dir,1024);
-    off_t compression_size;
-    
-    dir = opendir(cur_dir);
-    while ((dp=readdir(dir)) != NULL) 
-    {
-        if ( !strcmp(dp->d_name, ".") || !strcmp(dp->d_name, "..") )
-            continue;
-                
-        file_name = dp->d_name;
-
-        lstat(file_name, &st);
-
-        if(S_ISDIR(st.st_mode))
-        {
-            printf("dasdasdasd\n");
-            /*this dirInfo will be created at next available block*/
-            md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);    
-            count += di_add_dir(fd, file_name, dinode_num, md, compress);
-        }
-        else if(S_ISREG(st.st_mode))
-        {
-            dinode_num = md_find_dinode(md, st.st_ino);
-            dinode_num = -1;
-            if (dinode_num == -1)
-            {
-                md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
-//                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
-                    printf("edwww\n\n\n");
-                file_block = WriteFile(fd, *metadata_block, file_name, compress, &compression_size);
-                if (compression_size != -1)
-                {
-                    *metadata_block += compression_size / BLOCK_SIZE;
-                    if (compression_size % BLOCK_SIZE != 0)
-                        (*metadata_block)++; 
-                }
-                else
-                {
-                    printf("ekeiiiiii\n\n\n");
-
-                    *metadata_block += st.st_size / BLOCK_SIZE;
-                    if (st.st_size % BLOCK_SIZE != 0)
-                        (*metadata_block)++; 
-                }
-                md_add_dinode(md, st,'f', file_block, compression_size);
-                count++;
-            }
-            else
-            {
-                printf("New hard link '%s' pointing to dinode %d\n", file_name, dinode_num);
-                md_add_dirEntry(md,&dInfo,file_name, dinode_num);
-            }
-        }
-        else if(S_ISLNK(st.st_mode))
-        {
-            md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
-            char *linkName = getSymLinkPath(file_name);
-            printf("Symbolic link :%s shows to name: %s\n", file_name, linkName);
-
-            file_block = WriteSoftLink(fd, *metadata_block, linkName);
-            (*metadata_block)++;
-            printf("Symlink saved at %d\n",file_block);
-            md_add_dinode(md, st,'f', file_block, 0);
-            count++;
-            
-            free(linkName);
-        }
-    }
-    closedir(dir);
-    chdir("..");
-
-        printf("metadata_block %d\n", *metadata_block);
-
-    return count;   
 }
 
 
@@ -479,7 +177,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md, int compres
             if (dinode_num == -1)
             {
                 md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
-//                printf("New file '%s' with dinodenum %d!Extracting\n",file_name, md->dinode_count+1);
+                printf("New file '%s' with dinodenum %d!Saving\n",file_name, md->dinode_count+1);
                 file_block = WriteFile(fd, -1, file_name, compress, &compression_size);
                 md_add_dinode(md, st,'f', file_block, compression_size);
             }
@@ -496,7 +194,7 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md, int compres
             printf("Symbolic link :%s shows to name: %s\n", file_name, linkName);
 
             file_block = WriteSoftLink(fd, -1, linkName);
-            printf("Symlink saved at %d\n",file_block);
+            //printf("Symlink saved at %d\n",file_block);
             md_add_dinode(md, st,'f', file_block, 0);
             
             free(linkName);
@@ -504,6 +202,307 @@ int di_add_dir(int fd, char *dirname, int parent_num, metadata * md, int compres
     }
     closedir(dir);
     chdir("..");
+
+    return count;   
+}
+
+
+
+int di_append(char * filename, listofdirs * dirlist, int compress)
+{
+    int fd;
+    fd = OpenFile(filename);
+
+    /*WRITE HEADER (FOR NOW)*/
+    if (BlockCounter(fd) == 0)
+    {/*no file exists*/
+        printf("'%s' does not exist.Using create instead of append!\n", filename);
+        return di_createfile(filename, dirlist, compress);
+    }
+
+    Header head = di_getHeader(fd);
+    int metadata_block = head.metadata_block;
+    void * block = malloc(BLOCK_SIZE);
+    void * start = block;
+    node * old_nodes = getInodesArray(fd);
+
+    /*START CREATING FILE*/
+    metadata * md;
+    md_create(&md, BLOCK_SIZE);
+    int count = head.dinodes;
+    md->dinode_count = head.dinodes;
+
+    dirInfo * dInfo;
+    struct stat st;
+    st.st_ino = -1;
+    int dinode_num;
+    off_t compression_size;
+
+    dirNode * current = dirlist->first;
+    int list_size = 0;
+    while (current != NULL)
+    {
+        list_size++;
+        current = current->next;
+    }
+    current = dirlist->first;
+
+    int * entry_nums = malloc(list_size*sizeof(int));
+    entry_nums[0] = count + 1;
+    int index = 1;
+
+    char * file_name;
+    int dinodes_added;
+
+    while (current != NULL)
+    {
+        dinodes_added = 0;
+        int file_block;
+
+        file_name = current->dir;
+        lstat(file_name, &st);
+
+
+        if(S_ISDIR(st.st_mode))
+        {
+            dinodes_added = di_append_dir(fd, file_name, 1, md, compress, &metadata_block, old_nodes, head.dinodes);
+        }
+        else if(S_ISREG(st.st_mode))
+        {
+            /*try finding it in old dinodes (before append)*/
+            dinode_num = find_dinode(old_nodes, st.st_ino, head.dinodes);
+            if (dinode_num == -1)/*try finding it in new dinodes (during append)*/
+                dinode_num = md_find_dinode(md, st.st_ino);
+
+            if (dinode_num == -1)
+            {
+                dinodes_added = 1;
+                md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
+                printf("New file '%s'  with dinodenum %d!Saving\n", file_name, md->dinode_count +1);
+                WriteFile(fd, metadata_block, file_name, compress, &compression_size);
+                file_block = metadata_block;
+
+                if (compression_size != -1)
+                {
+                    metadata_block += compression_size / BLOCK_SIZE;
+                    if (compression_size % BLOCK_SIZE != 0)
+                        metadata_block++; 
+                }
+                else
+                {
+                    metadata_block += st.st_size / BLOCK_SIZE;
+                    if (st.st_size % BLOCK_SIZE != 0)
+                        metadata_block++; 
+                }
+                md_add_dinode(md, st,'f', file_block, compression_size);
+            }
+            else
+            {
+                printf("New hard link '%s' pointing to dinode %d\n", file_name, dinode_num);
+                md_add_dirEntry(md,&dInfo,file_name, dinode_num);
+            }
+        }
+        else if(S_ISLNK(st.st_mode))
+        {
+            dinodes_added = 1;
+            md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
+            char *linkName = getSymLinkPath(file_name);
+            printf("Symbolic link :%s shows to name: %s\n", file_name, linkName);
+            file_block = WriteSoftLink(fd, metadata_block, linkName);
+            file_block = metadata_block;
+            metadata_block++;
+            md_add_dinode(md, st,'f', file_block, 0);
+            free(linkName);
+
+        }
+
+        current = current->next;
+        count += dinodes_added;
+        if (index != list_size)
+            entry_nums[index++] = count + 1; 
+    }
+
+
+    /*WRITE CORRECT HEADER*/
+    freeNodeArray(&old_nodes, fd);
+    head.file_size = (BlockCounter(fd) + md->block_count)*BLOCK_SIZE;
+    head.dinodes = md->dinode_count;
+    int new_meta_start = BlockCounter(fd);
+    head.metadata_block = metadata_block;
+
+    memcpy(block, &head, sizeof(head));
+    WriteBlock(fd, 0, block);
+
+    md_writetofile(md, fd);
+    // md_printall(md);
+
+
+    int currBlock = metadata_block + 1;
+    int next = 0;
+    do
+    {
+        currBlock += next;        
+
+        ReadBlock(fd, currBlock, block);
+        block = start;
+        block += sizeof(int);
+        memcpy(&next, block, sizeof(int));
+    }
+    while (next != -1);
+
+    block = start;
+    memcpy(&count, block, sizeof(int));
+
+    block += 2*sizeof(int) + count*sizeof(dirEntry);
+
+    dirEntry new_entry;
+    current = dirlist->first;
+    listofdirs * path;
+
+    int i;
+    for (i=0;i<list_size;i++)
+    {
+        path = path_to_list(current->dir);
+        strcpy(new_entry.name, path->last->dir);
+        new_entry.dinode_num = entry_nums[i];
+
+        memcpy(block, &new_entry, sizeof(dirEntry));
+        block += sizeof(dirEntry);
+        count++;
+    }
+
+    block = start;
+    memcpy(block, &count, sizeof(int));
+    WriteBlock(fd, currBlock, block);
+
+    currBlock = metadata_block;
+    next = 0;
+    do
+    {
+        currBlock += next;        
+        ReadBlock(fd, currBlock, start);
+        block = start;
+        block += sizeof(int);
+        memcpy(&next, block, sizeof(int));
+    }
+    while (next != -1);
+
+    int new_offset = new_meta_start - currBlock;
+    memcpy(block, &new_offset, sizeof(int));
+    block = start;
+    WriteBlock(fd, currBlock, block);
+
+
+    printf("\nAPPEND AT DI FILE '%s' FINISHED!Printing head:\n", filename);
+    printf("FILE SIZE: %d bytes\n",head.file_size);
+    printf("DINODES: %d\n",head.dinodes);
+    printf("METADATA BLOCK: %d\n",head.metadata_block);
+
+    CloseFile(fd);
+    md_free(&md);
+    free(block);
+
+    return 0;
+}
+
+
+
+int di_append_dir(int fd, char *dirname, int parent_num, metadata * md,
+                    int compress, int * metadata_block, node * old_nodes, int old_count)
+{
+    dirInfo * dInfo;
+
+    int count = 1;
+    int file_block;
+    struct stat st;
+    int dinode_num;
+
+    lstat(dirname, &st);
+    md_add_dinode(md,st,'d',0, 0);
+
+    chdir(dirname);
+    dinode_num = md->dinode_count;
+
+    md_create_dirInfo(md,&dInfo);
+    md_add_dirEntry(md,&dInfo,".", dinode_num);
+    md_add_dirEntry(md,&dInfo,"..", parent_num);
+
+    char * file_name;
+    DIR *dir;
+    struct dirent *dp;
+    char cur_dir[1024];
+    getcwd(cur_dir,1024);
+    off_t compression_size;
+    
+    dir = opendir(cur_dir);
+    while ((dp=readdir(dir)) != NULL) 
+    {
+        if ( !strcmp(dp->d_name, ".") || !strcmp(dp->d_name, "..") )
+            continue;
+                
+        file_name = dp->d_name;
+
+        lstat(file_name, &st);
+
+        if(S_ISDIR(st.st_mode))
+        {
+            /*this dirInfo will be created at next available block*/
+            md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);    
+            count += di_append_dir(fd, file_name, dinode_num, md, compress, metadata_block, old_nodes, old_count);
+        }
+        else if(S_ISREG(st.st_mode))
+        {
+            /*try finding it in old dinodes (before append)*/
+            dinode_num = find_dinode(old_nodes, st.st_ino, old_count);
+            if (dinode_num == -1)/*try finding it in new dinodes (during append)*/
+                dinode_num = md_find_dinode(md, st.st_ino);
+
+            if (dinode_num == -1)
+            {
+                md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
+                printf("New file '%s'  with dinodenum %d!Saving\n", file_name, md->dinode_count +1);
+                WriteFile(fd, *metadata_block, file_name, compress, &compression_size);
+                file_block = *metadata_block;
+
+                if (compression_size != -1)
+                {
+                    *metadata_block += compression_size / BLOCK_SIZE;
+                    if (compression_size % BLOCK_SIZE != 0)
+                        (*metadata_block)++; 
+                }
+                else
+                {
+                    *metadata_block += st.st_size / BLOCK_SIZE;
+                    if (st.st_size % BLOCK_SIZE != 0)
+                        (*metadata_block)++; 
+                }
+                md_add_dinode(md, st,'f', file_block, compression_size);
+                count++;
+            }
+            else
+            {
+                printf("New hard link '%s' pointing to dinode %d\n", file_name, dinode_num);
+                md_add_dirEntry(md,&dInfo,file_name, dinode_num);
+            }
+        }
+        else if(S_ISLNK(st.st_mode))
+        {
+            md_add_dirEntry(md,&dInfo,file_name, md->dinode_count + 1);
+            char *linkName = getSymLinkPath(file_name);
+            printf("Symbolic link :%s shows to name: %s saving at block %d\n", file_name, linkName, *metadata_block);
+
+            file_block = WriteSoftLink(fd, *metadata_block, linkName);
+            file_block = *metadata_block;
+            (*metadata_block)++;
+            md_add_dinode(md, st,'f', file_block, 0);
+            count++;
+            
+            free(linkName);
+        }
+    }
+    closedir(dir);
+    chdir("..");
+
 
     return count;   
 }
@@ -613,9 +612,9 @@ Header di_getHeader(int fd)
 
     ReadBlock(fd, 0, block);
     memcpy(&head, block, sizeof(Header));
-/*  printf("FILE_SIZE: %d\n",head.file_size);
+/*  printf("FILE SIZE: %d bytes\n",head.file_size);
     printf("DINODES: %d\n",head.dinodes);
-    printf("METADATA_BLOCK: %d\n",head.metadata_block);
+    printf("METADATA BLOCK: %d\n",head.metadata_block);
 */
     free(block);
     
@@ -672,6 +671,8 @@ node * getInodesArray(int fd)
     return arr;
 }
 
+
+
 int freeNodeArray(node **arr, int fd)
 {
     Header head = di_getHeader(fd);
@@ -685,6 +686,22 @@ int freeNodeArray(node **arr, int fd)
     arr = NULL;
     return 0;
 }
+
+
+
+int find_dinode(node * arr, ino_t inode_num , int max)
+{
+    int i;
+
+    for (i = 0; i < max; ++i)
+    {
+        if ( arr[i].node_info.st_ino == inode_num)
+            return (i+1);
+    }
+
+    return -1;
+}
+
 
 
 int printHierarchy(int fd)
@@ -827,8 +844,9 @@ int extractDiFile(int fd, char *fileName,listofdirs *list)
     }
     else
     {
-        while (   current != NULL)
+        while ( current != NULL)
         {
+            pathlist = path_to_list(current->dir);
 
             if(SearchNode(arr[0].block + arr[0].offset, fd, arr, 0, pathlist->first) == 0 )
             {
@@ -876,7 +894,9 @@ int SearchNode(int blockNum, int fd, node *arr, int depth, dirNode *list)
             struct utimbuf times;
             times.actime = arr[inodeNum].node_info.st_atime;
             times.modtime = arr[inodeNum].node_info.st_mtime;
-            
+            printf("Found: %s\n",  dir.entries[i].name);
+            printf("Searching for: %s\n",  list->dir);
+
             if(S_ISDIR(arr[inodeNum].node_info.st_mode))
             {
                 if(strcmp(list->dir, dir.entries[i].name)== 0)
